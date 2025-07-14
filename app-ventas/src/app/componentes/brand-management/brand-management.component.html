@@ -1,0 +1,40 @@
+<h2>Gestión de Marcas</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div>
+  <h3>Crear Nueva Marca</h3>
+  <input type="text" [(ngModel)]="nuevaMarcaNombre" placeholder="Nombre de la marca" />
+  <button (click)="crearMarca()">Crear</button>
+</div>
+
+<table *ngIf="marcas.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let marca of marcas">
+      <td>{{ marca.id }}</td>
+      <td>
+        <span *ngIf="editandoMarca?.id !== marca.id">{{ marca.nombre }}</span>
+        <input *ngIf="editandoMarca?.id === marca.id" type="text" [(ngModel)]="editandoMarca!.nombre" name="editandoMarcaNombre" />
+      </td>
+      <td>
+        <ng-container *ngIf="editandoMarca?.id !== marca.id">
+          <button (click)="editarMarca(marca)">Editar</button>
+          <button (click)="eliminarMarca(marca.id!)" style="background-color: #dc3545;">Eliminar</button>
+        </ng-container>
+        <ng-container *ngIf="editandoMarca?.id === marca.id">
+          <button (click)="guardarEdicion()">Guardar</button>
+          <button (click)="cancelarEdicion()" style="background-color: gray;">Cancelar</button>
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="marcas.length === 0">No hay marcas registradas.</p>

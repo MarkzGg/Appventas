@@ -1,4 +1,4 @@
-export interface Reseña {
+export interface Resena {
   id?: number;
   productoId: number;
   comentario: string;

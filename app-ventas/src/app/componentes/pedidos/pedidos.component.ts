@@ -21,6 +21,7 @@ export class PedidosComponent implements OnInit {
   }
 
   calcularSubtotal(pedido: Boleta): number {
-    return pedido.detalles.reduce((suma, d) => suma + d.subtotal, 0);
-  }
+  // Asegúrate de que 'detalles' no sea null/undefined y que 'd.subtotal' no sea null/undefined
+  return pedido.detalles.reduce((suma, d) => suma + (d.subtotal ?? 0), 0);
+}
 }

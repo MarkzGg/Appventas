@@ -29,6 +29,7 @@ public class ResenaController {
     }
 
     @GetMapping("/producto/{id}")
+    @PreAuthorize("permitAll()") // Accesible por todos
     public List<Resena> verReseñas(@PathVariable Long id) {
         return resenaRepository.findByProductoIdAndAprobadoTrue(id);
     }

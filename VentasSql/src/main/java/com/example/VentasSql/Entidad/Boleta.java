@@ -29,4 +29,10 @@ public class Boleta {
     private BigDecimal subtotal;
     private BigDecimal igv; 
     private BigDecimal total;
+
+    @ManyToOne
+    @JoinColumn(name = "usuario_id")
+    private Uuser usuario;
+    
+
 }

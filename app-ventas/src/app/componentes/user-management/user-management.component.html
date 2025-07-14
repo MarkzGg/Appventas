@@ -1,0 +1,46 @@
+<h2>Gestión de Usuarios</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="usuarios.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Usuario</th>
+      <th>Nombre</th>
+      <th>Rol</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let user of usuarios">
+      <td>{{ user.id }}</td>
+      <td>{{ user.username }}</td>
+      <td>{{ user.nombre || 'N/A' }}</td>
+      <td>{{ user.role }}</td>
+      <td>
+        <!-- Editar solo si es ADMIN o el propio usuario -->
+        <button (click)="editarUsuario(user.id!)"
+                *ngIf="authService.isAdmin() || authService.getLoggedInUsername() === user.username">
+          Editar
+        </button>
+        <!-- Eliminar solo si es ADMIN -->
+        <button (click)="eliminarUsuario(user.id!)"
+                *ngIf="authService.isAdmin()"
+                style="background-color: #dc3545;">
+          Eliminar
+        </button>
+        <!-- Asignar Rol solo si es ADMIN -->
+        <select *ngIf="authService.isAdmin()" #rolSelect (change)="asignarRol(user.username, rolSelect.value)">
+          <option value="">Asignar Rol</option>
+          <option value="ADMIN">ADMIN</option>
+          <option value="USER">USER</option>
+          <option value="COMPRADOR">COMPRADOR</option>
+          <option value="VISITANTE">VISITANTE</option>
+        </select>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="usuarios.length === 0">No hay usuarios registrados.</p>

@@ -22,6 +22,11 @@ public class Uuser {
     private String username;
     private String password;
 
+    private String nombre;
+    private String direccion;
+    private String telefono;
+
+
     @Enumerated(EnumType.STRING) 
     private Role role; 
 }

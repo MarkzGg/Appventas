@@ -2,6 +2,7 @@
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
+<button *ngIf="authService.isAdmin()" (click)="editarProducto(0)">Nuevo Producto</button>
 <button (click)="editarProducto(0)">Nuevo Producto</button>
 
 <table *ngIf="productos.length > 0">
@@ -19,9 +20,10 @@
       <td>S/ {{ producto.precio }}</td>
       <td>{{ producto.stock }}</td>
       <td>
-        <button (click)="editarProducto(producto.id!)">Editar</button>
-        <button (click)="eliminarProducto(producto.id!)">Eliminar</button>
-      </td>
+       <button *ngIf="authService.isUser() || authService.isAdmin()" (click)="editarProducto(producto.id!)">Editar</button>
+            <!-- Botón "Eliminar": Solo visible para ADMIN -->
+            <button *ngIf="authService.isAdmin()" (click)="eliminarProducto(producto.id!)">Eliminar</button>
+          </td>
     </tr>
   </tbody>
 </table>

@@ -3,6 +3,7 @@ package com.example.VentasSql.Controller;
 import com.example.VentasSql.Dto.PedidoRequest;
 import com.example.VentasSql.Entidad.Boleta;
 import com.example.VentasSql.Entidad.DetalleBoleta;
+import com.example.VentasSql.Entidad.Uuser;
 import com.example.VentasSql.Model.Producto;
 import com.example.VentasSql.Repository.BoletaRepository;
 import com.example.VentasSql.Repository.DetalleBoletaRepository;
@@ -13,13 +14,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.example.VentasSql.Repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,11 +38,12 @@ public class BoletaController {
     private final BoletaRepository boletaRepository;
     private final ProductoRepository productoRepository;
     private final DetalleBoletaRepository detalleBoletaRepository;
+    private final UserRepository userRepository;
 
     private static final BigDecimal IGV_RATE = new BigDecimal("0.18"); 
 
     @PostMapping("/generar")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") 
+    @PreAuthorize("hasAnyRole('COMPRADOR','USER', 'ADMIN')") 
     @Transactional 
     public ResponseEntity<?> generarBoleta(@Valid @RequestBody List<PedidoRequest> pedidos) {
         if (pedidos == null || pedidos.isEmpty()) {
@@ -156,5 +161,14 @@ public class BoletaController {
             }
         }
         return String.format("%04d", ultimoNumero + 1);
+    }
+
+    @GetMapping("/historial")
+    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    @Transactional
+    public ResponseEntity<?> obtenerHistorialBoletas(Principal principal) {
+        Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
+        List<Boleta> historial = boletaRepository.findByUsuario(usuario);
+        return ResponseEntity.ok(historial);
     }
 }

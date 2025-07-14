@@ -1,5 +1,3 @@
-dmin-guard.guard.ts
-
 import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { AuthService } from '../auth/AuthService';
@@ -7,16 +5,15 @@ import { AuthService } from '../auth/AuthService';
 @Injectable({
   providedIn: 'root'
 })
-export class AdminGuard implements CanActivate {
-
+export class AuthGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.isAuthenticated() && this.authService.isAdmin()) {
+    if (this.authService.isAuthenticated()) {
       return true;
-    } else {
-      this.router.navigate(['/login']);
-      return false;
     }
+    this.router.navigate(['/login']);
+    return false;
   }
 }
+

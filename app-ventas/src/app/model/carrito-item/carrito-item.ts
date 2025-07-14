@@ -1,4 +1,4 @@
-import { Producto } from './producto';
+import { Producto } from "../producto/producto";
 
 export interface CarritoItem {
   id?: number;

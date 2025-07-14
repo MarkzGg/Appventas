@@ -1,0 +1,42 @@
+<h2>Gestión de Categorías</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div>
+  <h3>Crear Nueva Categoría</h3>
+  <input type="text" [(ngModel)]="nuevaCategoriaNombre" placeholder="Nombre de la categoría" />
+  <button (click)="crearCategoria()">Crear</button>
+</div>
+
+<table *ngIf="categorias.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let categoria of categorias">
+      <td>{{ categoria.id }}</td>
+      <td>
+        <span *ngIf="editandoCategoria?.id !== categoria.id">{{ categoria.nombre }}</span>
+        <input *ngIf="editandoCategoria && editandoCategoria.id === categoria.id"
+           type="text"
+           [(ngModel)]="editandoCategoria.nombre"
+           name="editandoCategoriaNombre" />     </td>
+      <td>
+        <ng-container *ngIf="editandoCategoria?.id !== categoria.id">
+          <button (click)="editarCategoria(categoria)">Editar</button>
+          <button (click)="eliminarCategoria(categoria.id!)" style="background-color: #dc3545;">Eliminar</button>
+        </ng-container>
+        <ng-container *ngIf="editandoCategoria?.id === categoria.id">
+          <button (click)="guardarEdicion()">Guardar</button>
+          <button (click)="cancelarEdicion()" style="background-color: gray;">Cancelar</button>
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="categorias.length === 0">No hay categorías registradas.</p>

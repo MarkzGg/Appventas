@@ -1,0 +1,29 @@
+<h2>Moderación de Reseñas</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="resenasPendientes.length > 0">
+  <thead>
+    <tr>
+      <th>ID Reseña</th>
+      <th>ID Producto</th>
+      <th>Comentario</th>
+      <th>Puntuación</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let resena of resenasPendientes">
+      <td>{{ resena.id }}</td>
+      <td>{{ resena.productoId }}</td>
+      <td>{{ resena.comentario }}</td>
+      <td>{{ resena.puntuacion }}</td>
+      <td>
+        <button (click)="aprobarResena(resena.id!)" style="background-color: #28a745;">Aprobar</button>
+        <button (click)="rechazarResena(resena.id!)" style="background-color: #dc3545;">Rechazar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="resenasPendientes.length === 0">No hay reseñas pendientes de moderación.</p>

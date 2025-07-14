@@ -26,16 +26,40 @@ import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Router} from '@angular/router';
 import {environment} from '../../environments/environment';
+import {JwtHelperService} from '@auth0/angular-jwt';
+import {Observable} from 'rxjs';
+
 
 @Injectable({providedIn: 'root'})
 export class AuthService {
+
   private readonly TOKEN_KEY = 'jwt-token';
   private readonly ROLE_KEY='jwt-role';
+  private jwtHelper: JwtHelperService = new JwtHelperService(); // Instanciar
 
   constructor(private http: HttpClient, private router: Router) {}
 
+  register(credentials: { username: string; password: string }): Observable<any> {
+    // Asumiendo que tu backend tiene un endpoint /registro para usuarios normales
+    return this.http.post(`${environment.apiUrl}/registro`, credentials);
+  }
+
+  getLoggedInUsername(): string | null {
+        const token = this.getToken();
+        if (token && !this.jwtHelper.isTokenExpired(token)) {
+          const decodedToken = this.jwtHelper.decodeToken(token);
+          return decodedToken.sub; // 'sub' es el campo estándar para el sujeto (username)
+        }
+        return null;
+      }
+
+  hasRole(roleToCheck: string): boolean {
+            const userRole = this.getRole();
+            return userRole === roleToCheck;
+          }
+
   login (credentials:{username:string; password:string}) {
-    return this.http.post<{token:string}>(`${environment.apiUrl}/auth/login`, credentials);
+    return this.http.post<{token:string, role: string}>(`${environment.apiUrl}/auth/login`, credentials);
   }
 
   saveToken(token:string) {
@@ -52,8 +76,9 @@ export class AuthService {
     return localStorage.getItem(this.ROLE_KEY);
   }
 
-  logout(){
-    localStorage.clear();
+   logout() {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.ROLE_KEY);
     this.router.navigate(['/login']);
   }
 
@@ -64,6 +89,19 @@ export class AuthService {
   isAdmin(): boolean {
     return this.getRole()==='ROLE_ADMIN';
   }
+
+  isUser(): boolean {
+    return this.getRole() === 'ROLE_USER';
+  }
+
+  isComprador(): boolean {
+    return this.getRole() === 'ROLE_COMPRADOR';
+  }
+
+  isVisitante(): boolean {
+    return this.getRole() === 'ROLE_VISITANTE';
+  }
+
 
 
 }
@@ -194,10 +232,13 @@ describe('AdminComponent', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\admin\admin.component.ts -----
 
+import { UsuarioService } from 'src/app/model/usuario/usuario.service';
 import { Component, OnInit } from '@angular/core';
 import { Producto } from 'src/app/model/producto/producto';
 import { ProductoService } from 'src/app/model/producto/producto.service';
 import { Router } from '@angular/router';
+import { Usuario } from 'src/app/model/usuario/usuario';
+// Asegúrate de que este modelo exista
 
 @Component({
   selector: 'app-admin',
@@ -206,13 +247,16 @@ import { Router } from '@angular/router';
 })
 export class AdminComponent implements OnInit {
   productos: Producto[] = [];
+
   mensaje = '';
 
   constructor(private productoService: ProductoService, private router: Router) {}
 
   ngOnInit(): void {
     this.obtenerProductos();
+
   }
+
 
   obtenerProductos(): void {
     this.productoService.getProductos().subscribe({
@@ -230,6 +274,294 @@ export class AdminComponent implements OnInit {
       next: () => this.obtenerProductos(),
       error: () => this.mensaje = 'No se pudo eliminar el producto'
     });
+  }
+
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\brand-management\brand-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\brand-management\brand-management.component.html -----
+
+<h2>Gestión de Marcas</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div>
+  <h3>Crear Nueva Marca</h3>
+  <input type="text" [(ngModel)]="nuevaMarcaNombre" placeholder="Nombre de la marca" />
+  <button (click)="crearMarca()">Crear</button>
+</div>
+
+<table *ngIf="marcas.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let marca of marcas">
+      <td>{{ marca.id }}</td>
+      <td>
+        <span *ngIf="editandoMarca?.id !== marca.id">{{ marca.nombre }}</span>
+        <input *ngIf="editandoMarca?.id === marca.id" type="text" [(ngModel)]="editandoMarca!.nombre" name="editandoMarcaNombre" />
+      </td>
+      <td>
+        <ng-container *ngIf="editandoMarca?.id !== marca.id">
+          <button (click)="editarMarca(marca)">Editar</button>
+          <button (click)="eliminarMarca(marca.id!)" style="background-color: #dc3545;">Eliminar</button>
+        </ng-container>
+        <ng-container *ngIf="editandoMarca?.id === marca.id">
+          <button (click)="guardarEdicion()">Guardar</button>
+          <button (click)="cancelarEdicion()" style="background-color: gray;">Cancelar</button>
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="marcas.length === 0">No hay marcas registradas.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\brand-management\brand-management.component.ts -----
+
+import { MarcaService } from 'src/app/model/Marca/marca.service';
+import { Component, OnInit } from '@angular/core';
+import { Marca } from 'src/app/model/Marca/marca';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+
+
+@Component({
+  selector: 'app-brand-management',
+  templateUrl: './brand-management.component.html',
+  styleUrls: ['./brand-management.component.css'],
+  standalone: true,
+      imports: [
+        CommonModule,
+        FormsModule, // <-- ¡Añádelo al array imports!
+        HttpClientModule
+      ]
+})
+export class BrandManagementComponent implements OnInit {
+  marcas: Marca[] = [];
+  nuevaMarcaNombre: string = '';
+  mensaje: string = '';
+  editandoMarca: Marca | null = null;
+
+  constructor(
+    private marcaService: MarcaService // Inyectar MarcaService
+  ) {}
+
+  ngOnInit(): void {
+    this.obtenerTodasLasMarcas();
+  }
+
+  obtenerTodasLasMarcas(): void {
+        this.marcaService.getMarcas().subscribe({ // <-- ¡Corrección aquí!
+          next: (data) => {
+            this.marcas = data;
+            console.log('Marcas cargadas:', this.marcas);
+          },
+          error: (err) => {
+            console.error('Error al cargar las marcas:', err);
+            // Manejo de errores, ej. this.mensaje = 'Error al cargar marcas';
+          }
+        });
+
+  }
+
+  crearMarca(): void {
+    if (!this.nuevaMarcaNombre) {
+      this.mensaje = 'El nombre de la marca no puede estar vacío.';
+      return;
+    }
+    const nueva: Marca = { nombre: this.nuevaMarcaNombre };
+    this.marcaService.createMarca(nueva).subscribe({
+      next: () => {
+        this.mensaje = 'Marca creada con éxito.';
+        this.nuevaMarcaNombre = '';
+        this.obtenerTodasLasMarcas();
+      },
+      error: (err) => this.mensaje = 'Error al crear marca: ' + (err.error || err.message)
+    });
+  }
+
+  editarMarca(marca: Marca): void {
+    this.editandoMarca = { ...marca }; // Copia para no modificar el original directamente
+  }
+
+  guardarEdicion(): void {
+    if (!this.editandoMarca || !this.editandoMarca.nombre) {
+      this.mensaje = 'El nombre de la marca no puede estar vacío.';
+      return;
+    }
+    this.marcaService.updateMarca(this.editandoMarca.id!, this.editandoMarca).subscribe({
+      next: () => {
+        this.mensaje = 'Marca actualizada con éxito.';
+        this.editandoMarca = null;
+        this.obtenerTodasLasMarcas();
+      },
+      error: (err) => this.mensaje = 'Error al actualizar marca: ' + (err.error || err.message)
+    });
+  }
+
+  cancelarEdicion(): void {
+    this.editandoMarca = null;
+  }
+
+  eliminarMarca(id: number): void {
+    if (confirm('¿Estás seguro de que quieres eliminar esta marca?')) {
+      this.marcaService.deleteMarca(id).subscribe({
+        next: () => {
+          this.mensaje = 'Marca eliminada con éxito.';
+          this.obtenerTodasLasMarcas();
+        },
+        error: (err) => this.mensaje = 'Error al eliminar marca: ' + (err.error || err.message)
+      });
+    }
   }
 }
 
@@ -287,21 +619,32 @@ button:hover {
       <th>Precio</th>
       <th>Cantidad</th>
       <th>Subtotal</th>
+      <th>Acciones</th>
     </tr>
   </thead>
   <tbody>
     <tr *ngFor="let item of carrito">
-      <td>{{ item.producto?.nombre }}</td>
-      <td>S/ {{ item.producto?.precio }}</td>
+      <td>{{ item.producto.nombre }}</td>
+      <td>S/ {{ item.producto.precio }}</td>
       <td>{{ item.cantidad }}</td>
-      <td>S/ {{ item.producto?.precio * item.cantidad }}</td>
+      <td>S/ {{ (item.producto.precio ?? 0) * item.cantidad }}</td>
+      <td>
+          <input type="number" [(ngModel)]="item.cantidad" min="1" (change)="actualizarCantidad(item)" style="width: 60px;">
+        </td>
+        <td>S/ {{ (item.producto.precio || 0) * item.cantidad }}</td>
+        <td>
+          <button (click)="eliminarItem(item.id!)" style="background-color: orange;">Eliminar</button>
+      </td>
     </tr>
   </tbody>
 </table>
 
 <p *ngIf="carrito.length > 0" class="total">Total: S/ {{ getTotal() }}</p>
 
-<button *ngIf="carrito.length > 0" (click)="limpiarCarrito()">Vaciar Carrito</button>
+<div *ngIf="carrito.length > 0">
+  <button (click)="limpiarCarrito()" style="background-color: #dc3545; margin-right: 10px;">Vaciar Carrito</button>
+  <button (click)="realizarPedido()" style="background-color: #28a745;">Realizar Pedido</button>
+</div>
 <p *ngIf="carrito.length === 0">Tu carrito está vacío.</p>
 
 
@@ -332,24 +675,84 @@ describe('CarritoComponent', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\carrito\carrito.component.ts -----
 
+import { BoletaService } from './../../model/boleta/boleta.service';
 import { Component, OnInit } from '@angular/core';
 import { CarritoService } from 'src/app/model/carrito-item/carrito.service';
 import { CarritoItem } from 'src/app/model/carrito-item/carrito-item';
+import { PedidoRequest } from 'src/app/model/pedido-request/pedido-request';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'app-carrito',
   templateUrl: './carrito.component.html',
-  styleUrls: ['./carrito.component.css']
+  styleUrls: ['./carrito.component.css'],
+standalone: true,
+      imports: [
+        CommonModule,
+        FormsModule // Necesario si usas [(ngModel)] en el input de cantidad
+      ]
 })
 export class CarritoComponent implements OnInit {
   carrito: CarritoItem[] = [];
   mensaje = '';
 
-  constructor(private carritoService: CarritoService) {}
+  constructor(
+    private carritoService: CarritoService,
+    private boletaService: BoletaService, // Inyectar BoletaService
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.obtenerCarrito();
   }
+
+  realizarPedido(): void {
+    if (this.carrito.length === 0) {
+      this.mensaje = 'El carrito está vacío. No se puede realizar un pedido.';
+      return;
+    }
+    const pedidos: PedidoRequest[] = this.carrito.map(item => ({
+      productoId: item.producto?.id || 0, // Asegúrate de que producto.id no sea undefined
+      cantidad: item.cantidad
+    }));
+    this.boletaService.generarBoleta(pedidos).subscribe({
+      next: (res: any) => {
+        this.mensaje = 'Pedido realizado con éxito! ' + res; // El backend devuelve un mensaje
+        this.carrito = []; // Vaciar carrito en frontend
+        // Opcional: Redirigir a la página de pedidos o mostrar un modal de confirmación
+        this.router.navigate(['/pedidos']);
+      },
+      error: (err) => {
+        console.error('Error al realizar el pedido:', err);
+        this.mensaje = 'Error al realizar el pedido: ' + (err.error || 'Verifique el stock o sus datos.');
+      }
+    });
+  }
+
+  actualizarCantidad(item: CarritoItem): void {
+        // Validar que la cantidad sea al menos 1
+        if (item.cantidad <= 0) {
+          item.cantidad = 1; // O eliminar el item si la cantidad es 0
+        }
+        this.mensaje = `Cantidad de ${item.producto?.nombre} actualizada a ${item.cantidad}`;
+        }
+
+  incrementarCantidad(item: CarritoItem): void {
+        item.cantidad++;
+        this.actualizarCantidad(item); // Llama al método principal de actualización
+      }
+      decrementarCantidad(item: CarritoItem): void {
+        if (item.cantidad > 1) {
+          item.cantidad--;
+          this.actualizarCantidad(item); // Llama al método principal de actualización
+        } else {
+          // Opcional: Preguntar si desea eliminar el producto si la cantidad llega a 0
+          // this.eliminarProductoDelCarrito(item);
+        }
+      }
 
   obtenerCarrito(): void {
     this.carritoService.obtenerCarrito().subscribe({
@@ -368,8 +771,308 @@ export class CarritoComponent implements OnInit {
     });
   }
 
+
+  eliminarItem(itemId: number): void {
+    this.carrito = this.carrito.filter(item => item.id !== itemId);
+    this.mensaje = 'Producto eliminado del carrito.';
+  }
+
   getTotal(): number {
-    return this.carrito.reduce((total, item) => total + item.cantidad * (item.producto?.precio || 0), 0);
+      return this.carrito.reduce((total, item) => {
+        // Cambiado de item.producto?.precio a item.producto.precio
+        const precio = item.producto.precio;
+        // Cambiado de item.cantidad ?? 0 a item.cantidad
+        const cantidad = item.cantidad;
+        return total + (precio * cantidad);
+      }, 0);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\category-management\category-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\category-management\category-management.component.html -----
+
+<h2>Gestión de Categorías</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div>
+  <h3>Crear Nueva Categoría</h3>
+  <input type="text" [(ngModel)]="nuevaCategoriaNombre" placeholder="Nombre de la categoría" />
+  <button (click)="crearCategoria()">Crear</button>
+</div>
+
+<table *ngIf="categorias.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let categoria of categorias">
+      <td>{{ categoria.id }}</td>
+      <td>
+        <span *ngIf="editandoCategoria?.id !== categoria.id">{{ categoria.nombre }}</span>
+        <input *ngIf="editandoCategoria && editandoCategoria.id === categoria.id"
+           type="text"
+           [(ngModel)]="editandoCategoria.nombre"
+           name="editandoCategoriaNombre" />     </td>
+      <td>
+        <ng-container *ngIf="editandoCategoria?.id !== categoria.id">
+          <button (click)="editarCategoria(categoria)">Editar</button>
+          <button (click)="eliminarCategoria(categoria.id!)" style="background-color: #dc3545;">Eliminar</button>
+        </ng-container>
+        <ng-container *ngIf="editandoCategoria?.id === categoria.id">
+          <button (click)="guardarEdicion()">Guardar</button>
+          <button (click)="cancelarEdicion()" style="background-color: gray;">Cancelar</button>
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="categorias.length === 0">No hay categorías registradas.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\category-management\category-management.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Categoria } from 'src/app/model/categoria';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+// Necesitarías un CategoryService similar a ProductoService o MarcaService
+// import { CategoryService } from 'src/app/model/category/category.service';
+
+@Component({
+  selector: 'app-category-management',
+  templateUrl: './category-management.component.html',
+  styleUrls: ['./category-management.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
+})
+export class CategoryManagementComponent implements OnInit {
+  categorias: Categoria[] = [];
+  nuevaCategoriaNombre: string = '';
+  mensaje: string = '';
+  editandoCategoria: Categoria | null = null;
+
+  constructor(
+    // private categoryService: CategoryService // Descomentar cuando tengas el servicio
+  ) {}
+
+  ngOnInit(): void {
+    this.loadCategorias();
+  }
+
+  loadCategorias(): void {
+    // this.categoryService.getCategorias().subscribe({
+    //   next: (data) => this.categorias = data,
+    //   error: (err) => this.mensaje = 'Error al cargar categorías: ' + (err.error || err.message)
+    // });
+    this.categorias = [{ id: 1, nombre: 'Electrónica' }, { id: 2, nombre: 'Ropa' }]; // Datos de ejemplo
+  }
+
+  crearCategoria(): void {
+    if (!this.nuevaCategoriaNombre) {
+      this.mensaje = 'El nombre de la categoría no puede estar vacío.';
+      return;
+    }
+    const nueva: Categoria = { nombre: this.nuevaCategoriaNombre };
+    // this.categoryService.crearCategoria(nueva).subscribe({
+    //   next: () => {
+    //     this.mensaje = 'Categoría creada con éxito.';
+    //     this.nuevaCategoriaNombre = '';
+    //     this.loadCategorias();
+    //   },
+    //   error: (err) => this.mensaje = 'Error al crear categoría: ' + (err.error || err.message)
+    // });
+    this.mensaje = `Categoría '${this.nuevaCategoriaNombre}' creada (simulado).`;
+    this.nuevaCategoriaNombre = '';
+    this.loadCategorias();
+  }
+
+  editarCategoria(categoria: Categoria): void {
+    this.editandoCategoria = { ...categoria }; // Copia para no modificar el original directamente
+  }
+
+  guardarEdicion(): void {
+    if (!this.editandoCategoria || !this.editandoCategoria.nombre) {
+      this.mensaje = 'El nombre de la categoría no puede estar vacío.';
+      return;
+    }
+    // this.categoryService.actualizarCategoria(this.editandoCategoria).subscribe({
+    //   next: () => {
+    //     this.mensaje = 'Categoría actualizada con éxito.';
+    //     this.editandoCategoria = null;
+    //     this.loadCategorias();
+    //   },
+    //   error: (err) => this.mensaje = 'Error al actualizar categoría: ' + (err.error || err.message)
+    // });
+    this.mensaje = `Categoría '${this.editandoCategoria.nombre}' actualizada (simulado).`;
+    this.editandoCategoria = null;
+    this.loadCategorias();
+  }
+
+  cancelarEdicion(): void {
+    this.editandoCategoria = null;
+  }
+
+  eliminarCategoria(id: number): void {
+    if (confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
+      // this.categoryService.eliminarCategoria(id).subscribe({
+      //   next: () => {
+      //     this.mensaje = 'Categoría eliminada con éxito.';
+      //     this.loadCategorias();
+      //   },
+      //   error: (err) => this.mensaje = 'Error al eliminar categoría: ' + (err.error || err.message)
+      // });
+      this.mensaje = `Categoría con ID ${id} eliminada (simulado).`;
+      this.loadCategorias();
+    }
   }
 }
 
@@ -464,10 +1167,19 @@ import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from 'src/app/auth/AuthService';
 
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css']
+  styleUrls: ['./login.component.css'],
+  standalone: true, // Asumiendo que es standalone
+  imports: [
+    FormsModule, // <-- Añadir aquí
+    CommonModule // Si es necesario
+  ]
+
 })
 export class LoginComponent {
   username = '';
@@ -477,16 +1189,263 @@ export class LoginComponent {
   constructor(private authService: AuthService, private router: Router) {}
 
   login() {
-    this.authService.login({ username: this.username, password: this.password })
-      .subscribe({
-        next: (res: any) => {
-          this.authService.saveToken(res.token);
+  this.authService.login({ username: this.username, password: this.password })
+    .subscribe({
+      next: (res: any) => {
+        this.authService.saveToken(res.token);
+
+        // Redirección según rol
+        const role = this.authService.getRole();
+        if (role === 'ROLE_ADMIN') {
+          this.router.navigate(['/admin']);
+        } else {
           this.router.navigate(['/products']);
-        },
-        error: () => {
-          this.error = 'Usuario o contraseña incorrectos';
         }
-      });
+      },
+      error: () => {
+        this.error = 'Usuario o contraseña incorrectos';
+      }
+    });
+}
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\order-management\order-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\order-management\order-management.component.html -----
+
+<h2>Gestión de Pedidos</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div *ngFor="let pedido of pedidos" class="pedido">
+  <h4>Pedido #{{ pedido.id }} - Fecha: {{ pedido.fecha }} - Total: S/ {{ pedido.total }}</h4>
+  <!-- Asumiendo que el backend devuelve el estado del pedido -->
+  <!-- <p>Estado: {{ pedido.estado }}</p> -->
+
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Precio Unitario</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let detalle of pedido.detalles">
+        <td>{{ detalle.producto }}</td>
+        <td>{{ detalle.cantidad }}</td>
+        <td>S/ {{ detalle.precioUnitario }}</td>
+        <td>S/ {{ detalle.subtotal }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="total">Subtotal Pedido: S/ {{ calcularSubtotal(pedido) }}</p>
+
+  <button (click)="verDetalle(pedido)">Ver Detalle Completo</button>
+  <!-- Actualizar estado solo si es ADMIN -->
+  <select *ngIf="authService.isAdmin()" #estadoSelect (change)="actualizarEstado(pedido.id!, estadoSelect.value)">
+    <option value="">Actualizar Estado</option>
+    <option value="PENDIENTE">PENDIENTE</option>
+    <option value="EN_PROCESO">EN PROCESO</option>
+    <option value="ENVIADO">ENVIADO</option>
+    <option value="ENTREGADO">ENTREGADO</option>
+    <option value="CANCELADO">CANCELADO</option>
+  </select>
+
+
+</div>
+
+<p *ngIf="pedidos.length === 0">No hay pedidos para gestionar.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\order-management\order-management.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Boleta } from 'src/app/model/boleta/boleta';
+import { BoletaService } from 'src/app/model/boleta/boleta.service';
+import { AuthService } from 'src/app/auth/AuthService';
+
+@Component({
+  selector: 'app-order-management',
+  templateUrl: './order-management.component.html',
+  styleUrls: ['./order-management.component.css']
+})
+export class OrderManagementComponent implements OnInit {
+  pedidos: Boleta[] = [];
+  mensaje: string = '';
+
+  constructor(
+    private boletaService: BoletaService,
+    public authService: AuthService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadAllOrders();
+  }
+
+  loadAllOrders(): void {
+    // Asumiendo que hay un endpoint en BoletaService para obtener todas las boletas (solo para ADMIN/USER)
+    // Si no existe, necesitarías añadirlo en el backend.
+    // Por ahora, usaremos obtenerHistorial() que es para el usuario logueado, lo cual no es correcto para gestión.
+    // Necesitarías un boletaService.getAllBoletas() en el backend.
+    this.boletaService.obtenerHistorial().subscribe({ // Esto debe ser reemplazado por getAllBoletas()
+      next: (data) => this.pedidos = data,
+      error: (err) => this.mensaje = 'Error al cargar pedidos: ' + (err.error || err.message)
+    });
+  }
+
+  verDetalle(pedido: Boleta): void {
+    alert('Funcionalidad de ver detalle de pedido no implementada aún.');
+    // Podrías abrir un modal o navegar a una ruta de detalle de pedido.
+  }
+
+  actualizarEstado(pedidoId: number, nuevoEstado: string): void {
+    alert(`Funcionalidad de actualizar estado del pedido ${pedidoId} a ${nuevoEstado} no implementada aún.`);
+    // Aquí llamarías a un servicio que interactúe con el backend para actualizar el estado del pedido.
+  }
+
+  calcularSubtotal(pedido: Boleta): number {
+    return pedido.detalles.reduce((suma, d) => suma + (d.subtotal || 0), 0);
   }
 }
 
@@ -605,8 +1564,9 @@ export class PedidosComponent implements OnInit {
   }
 
   calcularSubtotal(pedido: Boleta): number {
-    return pedido.detalles.reduce((suma, d) => suma + d.subtotal, 0);
-  }
+  // Asegúrate de que 'detalles' no sea null/undefined y que 'd.subtotal' no sea null/undefined
+  return pedido.detalles.reduce((suma, d) => suma + (d.subtotal ?? 0), 0);
+}
 }
 
 
@@ -667,7 +1627,7 @@ button:hover {
 
   <div>
     <label for="nombre">Nombre completo:</label>
-    <input type="text" id="nombre" [(ngModel)]="usuario.nombreCompleto" name="nombreCompleto" required />
+    <input type="text" id="nombre" [(ngModel)]="usuario.nombre" name="nombreCompleto" required />
   </div>
 
   <div>
@@ -714,16 +1674,23 @@ describe('PerfilComponent', () => {
 import { Component, OnInit } from '@angular/core';
 import { Usuario } from 'src/app/model/usuario/usuario';
 import { UsuarioService } from 'src/app/model/usuario/usuario.service';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // Importa FormsModule para manejar formularios
 
 @Component({
   selector: 'app-perfil',
   templateUrl: './perfil.component.html',
-  styleUrls: ['./perfil.component.css']
+  styleUrls: ['./perfil.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
 })
 export class PerfilComponent implements OnInit {
   usuario: Usuario = {
     username: '',
-    nombreCompleto: '',
+    nombre: '',
     direccion: '',
     telefono: ''
   };
@@ -821,6 +1788,7 @@ button:hover {
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+
 import { ProductFormComponent } from './product-form.component';
 
 describe('ProductFormComponent', () => {
@@ -850,11 +1818,21 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Producto } from 'src/app/model/producto/producto';
 import { ProductoService } from 'src/app/model/producto/producto.service';
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-product-form',
   templateUrl: './product-form.component.html',
-  styleUrls: ['./product-form.component.css']
+  styleUrls: ['./product-form.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
 })
 export class ProductFormComponent implements OnInit {
   producto: Producto = {
@@ -926,6 +1904,7 @@ li:hover {
 
 <h2>Catálogo de Productos</h2>
 
+
 <ul>
   <li *ngFor="let producto of productos" (click)="seleccionarProducto(producto)">
     <strong>{{ producto.nombre }}</strong> - S/ {{ producto.precio }}
@@ -934,10 +1913,14 @@ li:hover {
 
 <div *ngIf="productoSeleccionado">
   <h3>Detalle del Producto</h3>
-  <p><strong>Nombre:</strong> {{ productoSeleccionado.nombre }}</p>
-  <p><strong>Descripción:</strong> {{ productoSeleccionado.descripcion }}</p>
-  <p><strong>Precio:</strong> S/ {{ productoSeleccionado.precio }}</p>
-  <p><strong>Stock:</strong> {{ productoSeleccionado.stock }}</p>
+  <p><strong>Nombre:</strong> {{ productoSeleccionado?.nombre }}</p>
+  <p><strong>Descripción:</strong> {{ productoSeleccionado?.descripcion }}</p>
+  <p><strong>Precio:</strong> S/ {{ productoSeleccionado?.precio }}</p>
+  <p><strong>Stock:</strong> {{ productoSeleccionado?.stock }}</p>
+  <button *ngIf="auth.isAuthenticated() || auth.isVisitante()" (click)="agregarAlCarrito(productoSeleccionado!)">Añadir al Carrito</button>
+        <!-- Considerar si el stock es 0, deshabilitar el botón o mostrar mensaje -->
+        <p *ngIf="productoSeleccionado?.stock === 0" style="color: red;">Sin stock disponible</p>
+
 </div>
 
 
@@ -969,8 +1952,14 @@ describe('ProductsComponent', () => {
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\products\products.component.ts -----
 
 import { Component, OnInit } from '@angular/core';
-import { Producto } from 'src/app/model/producto/producto';
-import { ProductoService } from 'src/app/model/producto/producto.service';
+import {CommonModule} from '@angular/common';
+import {HttpClient} from '@angular/common/http';
+import {environment} from '../../../environments/environment';
+import {AuthService} from '../../auth/AuthService';
+import {Router, RouterModule} from '@angular/router';
+import {ProductoService} from '../../model/producto/producto.service';
+import {Producto} from '../../model/producto/producto';
+import { CarritoService } from 'src/app/model/carrito-item/carrito.service';
 
 @Component({
   selector: 'app-products',
@@ -979,20 +1968,70 @@ import { ProductoService } from 'src/app/model/producto/producto.service';
 })
 export class ProductsComponent implements OnInit {
   productos: Producto[] = [];
-  productoSeleccionado?: Producto;
+  productoSeleccionado: Producto | null = null;
 
-  constructor(private productoService: ProductoService) {}
+  constructor(
+    private http: HttpClient,
+    public auth: AuthService,
+    private router: Router,
+    private productoService: ProductoService,
+    private carritoService: CarritoService
+  ) {}
 
-  ngOnInit(): void {
-    this.productoService.getProductos().subscribe({
-      next: (data) => this.productos = data,
-      error: (err) => console.error('Error al cargar productos', err)
+  agregarAlCarrito(producto: Producto) {
+            if (!producto || !producto.id || (producto.stock || 0) <= 0) {
+              alert('No se puede añadir este producto al carrito.');
+              return;
+            }
+            const cantidad = 1; // O permitir al usuario elegir la cantidad
+            this.carritoService.agregarProducto({ productoId: producto.id, cantidad: cantidad }).subscribe({
+              next: () => {
+                alert('Producto añadido al carrito!');
+                // Opcional: Redirigir al carrito o actualizar el contador del carrito
+              },
+              error: (err) => {
+                console.error('Error al añadir al carrito:', err);
+                alert('Error al añadir el producto al carrito. Por favor, intente de nuevo.');
+              }
+            });
+  }
+
+   ngOnInit() {
+    this.loadProducts();
+  }
+
+  loadProducts() {
+    this.http.get<any[]>(`${environment.apiUrl}/api/products`).subscribe(data => {
+      this.productos = data;
     });
   }
 
-  seleccionarProducto(producto: Producto) {
-    this.productoSeleccionado = producto;
+  deleteProduct(id: number) {
+    if (confirm('¿Estás seguro de eliminar este producto?')) {
+      this.http.delete(`${environment.apiUrl}/api/products/${id}`).subscribe(() => {
+        this.loadProducts();
+      });
+    }
   }
+
+  editProduct(product: any) {
+    this.router.navigate(['/admin/create'], { state: { product } });
+  }
+
+  buscar(keyword: string) {
+    this.productoService.searchProductos(keyword).subscribe(productos => {
+      this.productos = productos;
+    });
+  }
+
+  seleccionarProducto(product: any = null) {
+    this.productoSeleccionado = product;
+  } // asegúrate que esté importado o usa 'any'
+
+
+
+
+
 }
 
 
@@ -1092,11 +2131,18 @@ describe('RegisterComponent', () => {
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from 'src/app/auth/AuthService';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-register',
   templateUrl: './register.component.html',
-  styleUrls: ['./register.component.css']
+  styleUrls: ['./register.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
 })
 export class RegisterComponent {
   username = '';
@@ -1122,16 +2168,506 @@ export class RegisterComponent {
 }
 
 
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\review-management\review-management.component.css -----
+
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\review-management\review-management.component.html -----
+
+<h2>Moderación de Reseñas</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="resenasPendientes.length > 0">
+  <thead>
+    <tr>
+      <th>ID Reseña</th>
+      <th>ID Producto</th>
+      <th>Comentario</th>
+      <th>Puntuación</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let resena of resenasPendientes">
+      <td>{{ resena.id }}</td>
+      <td>{{ resena.productoId }}</td>
+      <td>{{ resena.comentario }}</td>
+      <td>{{ resena.puntuacion }}</td>
+      <td>
+        <button (click)="aprobarResena(resena.id!)" style="background-color: #28a745;">Aprobar</button>
+        <button (click)="rechazarResena(resena.id!)" style="background-color: #dc3545;">Rechazar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="resenasPendientes.length === 0">No hay reseñas pendientes de moderación.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\review-management\review-management.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Resena } from 'src/app/model/reseña/reseña';
+import { ResenaService } from 'src/app/model/reseña/reseña.service';
+@Component({
+  selector: 'app-review-management',
+  templateUrl: './review-management.component.html',
+  styleUrls: ['./review-management.component.css']
+})
+export class ReviewManagementComponent implements OnInit {
+  resenasPendientes: Resena[] = [];
+  mensaje: string = '';
+
+  constructor(
+    private resenaService: ResenaService // Inyectar ResenaService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadResenasPendientes();
+  }
+
+  loadResenasPendientes(): void {
+    // Asumiendo que hay un endpoint en ResenaService para obtener reseñas pendientes de aprobación
+    // Si no existe, necesitarías añadirlo en el backend (ej. GET /reseñas/pendientes)
+    // Por ahora, simulamos datos.
+    // this.resenaService.getResenasPendientes().subscribe({
+    //   next: (data) => this.reseñasPendientes = data,
+    //   error: (err) => this.mensaje = 'Error al cargar reseñas: ' + (err.error || err.message)
+    // });
+    this.resenasPendientes = [
+      { id: 1, productoId: 101, comentario: 'Buen producto, pero llegó tarde.', puntuacion: 4, aprobado: false },
+      { id: 2, productoId: 102, comentario: 'Excelente calidad, muy recomendado.', puntuacion: 5, aprobado: false }
+    ];
+  }
+
+  aprobarResena(id: number): void {
+    this.resenaService.aprobar(id).subscribe({
+      next: () => {
+        this.mensaje = 'Reseña aprobada con éxito.';
+        this.loadResenasPendientes(); // Recargar la lista
+      },
+      error: (err) => this.mensaje = 'Error al aprobar reseña: ' + (err.error || err.message)
+    });
+  }
+
+  rechazarResena(id: number): void {
+    if (confirm('¿Estás seguro de que quieres rechazar esta reseña?')) {
+      // Asumiendo que hay un endpoint en ResenaService para rechazar/eliminar reseñas
+      // Si no existe, necesitarías añadirlo en el backend (ej. DELETE /reseñas/{id})
+      // Por ahora, simulamos la eliminación.
+      // this.resenaService.eliminarResena(id).subscribe({
+      //   next: () => {
+      //     this.mensaje = 'Reseña rechazada/eliminada con éxito.';
+      //     this.loadResenasPendientes();
+      //   },
+      //   error: (err) => this.mensaje = 'Error al rechazar reseña: ' + (err.error || err.message)
+      // });
+      this.mensaje = `Reseña con ID ${id} rechazada (simulado).`;
+      this.resenasPendientes = this.resenasPendientes.filter(r => r.id !== id);
+    }
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\user-management\user-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\user-management\user-management.component.html -----
+
+<h2>Gestión de Usuarios</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="usuarios.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Usuario</th>
+      <th>Nombre</th>
+      <th>Rol</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let user of usuarios">
+      <td>{{ user.id }}</td>
+      <td>{{ user.username }}</td>
+      <td>{{ user.nombre || 'N/A' }}</td>
+      <td>{{ user.role }}</td>
+      <td>
+        <!-- Editar solo si es ADMIN o el propio usuario -->
+        <button (click)="editarUsuario(user.id!)"
+                *ngIf="authService.isAdmin() || authService.getLoggedInUsername() === user.username">
+          Editar
+        </button>
+        <!-- Eliminar solo si es ADMIN -->
+        <button (click)="eliminarUsuario(user.id!)"
+                *ngIf="authService.isAdmin()"
+                style="background-color: #dc3545;">
+          Eliminar
+        </button>
+        <!-- Asignar Rol solo si es ADMIN -->
+        <select *ngIf="authService.isAdmin()" #rolSelect (change)="asignarRol(user.username, rolSelect.value)">
+          <option value="">Asignar Rol</option>
+          <option value="ADMIN">ADMIN</option>
+          <option value="USER">USER</option>
+          <option value="COMPRADOR">COMPRADOR</option>
+          <option value="VISITANTE">VISITANTE</option>
+        </select>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="usuarios.length === 0">No hay usuarios registrados.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\user-management\user-management.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Usuario } from 'src/app/model/usuario/usuario';
+import { UsuarioService } from 'src/app/model/usuario/usuario.service';
+import { AuthService } from 'src/app/auth/AuthService'; // Para verificar roles
+
+@Component({
+  selector: 'app-user-management',
+  templateUrl: './user-management.component.html',
+  styleUrls: ['./user-management.component.css']
+})
+export class UserManagementComponent implements OnInit {
+  usuarios: Usuario[] = [];
+  mensaje: string = '';
+
+  constructor(
+    private usuarioService: UsuarioService,
+    public authService: AuthService // Para controlar la visibilidad de acciones
+  ) {}
+
+  ngOnInit(): void {
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    this.usuarioService.listarUsuarios().subscribe({
+      next: (data) => this.usuarios = data,
+      error: (err) => this.mensaje = 'Error al cargar usuarios: ' + (err.error || err.message)
+    });
+  }
+
+  editarUsuario(id: number): void {
+    // Lógica para navegar al formulario de edición de usuario
+    // Podría ser un modal o una nueva ruta como /admin/usuarios/editar/:id
+    alert('Funcionalidad de edición de usuario no implementada aún.');
+  }
+
+  eliminarUsuario(id: number): void {
+    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+      this.usuarioService.eliminarUsuario(id).subscribe({
+        next: () => {
+          this.mensaje = 'Usuario eliminado con éxito.';
+          this.loadUsers(); // Recargar la lista
+        },
+        error: (err) => this.mensaje = 'Error al eliminar usuario: ' + (err.error || err.message)
+      });
+    }
+  }
+
+  // Método para asignar rol (solo ADMIN)
+  asignarRol(username: string, role: string): void {
+    alert(`Funcionalidad de asignar rol a ${username} como ${role} no implementada aún.`);
+    // Aquí llamarías a un servicio que interactúe con el endpoint /admin/asignar-rol
+  }
+}
+
+
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\admin-guard.guard.spec.ts -----
 
 import { TestBed } from '@angular/core/testing';
 import { CanActivateFn } from '@angular/router';
 
-import { adminGuardGuard } from './admin-guard.guard';
+import { AdminGuard } from './admin-guard.guard';
 
 describe('adminGuardGuard', () => {
-  const executeGuard: CanActivateFn = (...guardParameters) => 
-      TestBed.runInInjectionContext(() => adminGuardGuard(...guardParameters));
+  const executeGuard: CanActivateFn = (route, state) =>
+      TestBed.runInInjectionContext(() => {
+        const guard = TestBed.inject(AdminGuard);
+        return guard.canActivate(route, state);
+      });
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
@@ -1152,18 +2688,17 @@ import { AuthService } from '../auth/AuthService';
 @Injectable({
   providedIn: 'root'
 })
-export class AuthGuard implements CanActivate {
-
+export class AdminGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.isAuthenticated()) {
+    if (this.authService.isAuthenticated() && this.authService.hasRole('ROLE_ADMIN')) {
       return true;
-    } else {
-      this.router.navigate(['/login']);
-      return false;
     }
+    this.router.navigate(['/login']);
+    return false;
   }
+
 }
 
 
@@ -1190,8 +2725,6 @@ describe('authGuardGuard', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\auth-guard.guard.ts -----
 
-dmin-guard.guard.ts
-
 import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { AuthService } from '../auth/AuthService';
@@ -1199,17 +2732,105 @@ import { AuthService } from '../auth/AuthService';
 @Injectable({
   providedIn: 'root'
 })
-export class AdminGuard implements CanActivate {
-
+export class AuthGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.isAuthenticated() && this.authService.isAdmin()) {
+    if (this.authService.isAuthenticated()) {
       return true;
-    } else {
-      this.router.navigate(['/login']);
-      return false;
     }
+    this.router.navigate(['/login']);
+    return false;
+  }
+}
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\user.admin-guard.ts -----
+
+import { Injectable } from '@angular/core';
+import { CanActivate, Router } from '@angular/router';
+import { AuthService } from '../auth/AuthService';
+
+@Injectable({ providedIn: 'root' })
+export class UserAdminGuard implements CanActivate {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  canActivate(): boolean {
+    if (this.authService.isAuthenticated() && (this.authService.hasRole('ROLE_USER') || this.authService.hasRole('ROLE_ADMIN'))) {
+      return true;
+    }
+    this.router.navigate(['/login']);
+    return false;
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\layout\navbar\navbar.component.html -----
+
+<!-- navbar.component.html -->
+        <!-- navbar.component.html -->
+        <nav>
+          <a routerLink="/products">Productos</a>
+
+          <ng-container *ngIf="!authService.isAuthenticated()">
+            <a routerLink="/login">Iniciar sesión</a>
+            <a routerLink="/register">Registrarse</a> <!-- Cambiado a /register según app.routes.ts -->
+          </ng-container>
+
+          <!-- Carrito siempre visible si se permite a visitantes -->
+          <a routerLink="/carrito">Carrito</a>
+
+          <ng-container *ngIf="authService.isAuthenticated()">
+            <a routerLink="/perfil">Perfil</a>
+            <a routerLink="/pedidos">Pedidos</a>
+
+            <!-- Enlaces de administración/gestión -->
+            <ng-container *ngIf="authService.hasRole('ROLE_USER') || authService.hasRole('ROLE_ADMIN')">
+              <a routerLink="/admin/productos">Gestión Productos</a>
+              <a routerLink="/admin/pedidos">Gestión Pedidos</a>
+              <a routerLink="/admin/categorias">Gestión Categorías</a>
+              <a routerLink="/admin/marcas">Gestión Marcas</a>
+              <a routerLink="/admin/resenas">Moderación Reseñas</a>
+              <a routerLink="/admin/usuarios">Gestión Usuarios</a>
+            </ng-container>
+
+            <!-- Enlace exclusivo para Admin -->
+            <ng-container *ngIf="authService.hasRole('ROLE_ADMIN')">
+              <a routerLink="/admin">Panel Admin</a> <!-- Si hay un panel general de admin -->
+            </ng-container>
+
+            <button (click)="logout()">Salir</button>
+          </ng-container>
+        </nav>
+
+<footer>
+  <p>© {{ currentYear }} Ventas Online</p>
+</footer>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\layout\navbar\navbar.componet.ts -----
+
+import { Component } from '@angular/core';
+import { AuthService } from 'src/app/auth/AuthService';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+
+@Component({
+  selector: 'app-navbar',
+  templateUrl: './navbar.component.html',
+      standalone: true, // <--- ¡Añadir esto!
+      imports: [
+        CommonModule,
+        RouterModule // <--- ¡Añadir esto!
+      ]
+})
+export class NavbarComponent {
+  constructor(public authService: AuthService) {}
+
+  currentYear = new Date().getFullYear();
+  logout() {
+    this.authService.logout();
   }
 }
 
@@ -1236,20 +2857,32 @@ describe('BoletaService', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\boleta.service.ts -----
 
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Boleta } from './boleta';
+import { PedidoRequest } from '../pedido-request/pedido-request';
+import { environment } from '../../../environments/environment';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class BoletaService {
+  private baseUrl = `${environment.apiUrl}/boletas`;
 
-  constructor() { }
+  constructor(private http: HttpClient) {}
+
+  generarBoleta(pedidos: PedidoRequest[]) {
+    return this.http.post(`${this.baseUrl}/generar`, pedidos);
+  }
+
+  // Si implementas historial:
+  obtenerHistorial() {
+    return this.http.get<Boleta[]>(`${this.baseUrl}/historial`);
+  }
 }
 
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\boleta.ts -----
 
-import { DetalleBoleta } from './detalle-boleta';
+import { DetalleBoleta } from "./detalle-boleta";
 
 export interface Boleta {
   id?: number;
@@ -1259,9 +2892,23 @@ export interface Boleta {
 }
 
 
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\detalle-boleta.ts -----
+
+import { Producto } from 'src/app/model/producto/producto'; // Importa la interfaz Producto
+
+export interface DetalleBoleta {
+  id?: number;
+  // boleta?: Boleta; // Evitar referencia circular si no es estrictamente necesario en el frontend
+  producto?: Producto; // Usamos '?' porque puede ser lazy-loaded o no siempre presente en todas las respuestas
+  cantidad?: number;
+  precioUnitario?: number; // BigDecimal en Java se mapea a number en TypeScript
+  subtotal?: number; // BigDecimal en Java se mapea a number en TypeScript (cambiado de subtotalDetalle para consistencia con el uso en el frontend)
+}
+
+
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\carrito-item\carrito-item.ts -----
 
-import { Producto } from './producto';
+import { Producto } from "../producto/producto";
 
 export interface CarritoItem {
   id?: number;
@@ -1292,14 +2939,82 @@ describe('CarritoService', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\carrito-item\carrito.service.ts -----
 
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { CarritoItem } from './carrito-item';
+import { PedidoRequest } from '../pedido-request/pedido-request';
+import { environment } from '../../../environments/environment';
+import { AuthService } from '../../auth/AuthService';
+import { Router } from '@angular/router';
+import { ProductoService } from '../producto/producto.service';
+
+@Injectable({ providedIn: 'root' })
+export class CarritoService {
+  private baseUrl = `${environment.apiUrl}/carrito`;
+
+  constructor(private http: HttpClient,
+        public auth: AuthService,
+        private router: Router,
+        private productoService: ProductoService,
+        private carritoService: CarritoService) {}
+
+  obtenerCarrito() {
+    return this.http.get<CarritoItem[]>(this.baseUrl);
+  }
+
+  limpiarCarrito() {
+    return this.http.delete(`${this.baseUrl}/limpiar`);
+  }
+
+  agregarProducto(pedido: PedidoRequest) {
+    return this.http.post(`${this.baseUrl}/agregar`, pedido);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\Marca\marca.service.ts -----
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Marca } from './marca'; // Asegúrate de que la interfaz Marca esté bien definida
+import { environment } from '../../../environments/environment'; // Asegúrate de la ruta correcta
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root' // Esto hace que el servicio esté disponible en toda la aplicación
 })
-export class CarritoService {
+export class MarcaService {
+  private apiUrl = `${environment.apiUrl}/marcas`; // Ajusta la URL de tu API
 
-  constructor() { }
+  constructor(private http: HttpClient) { }
+
+  getMarcas(): Observable<Marca[]> {
+    return this.http.get<Marca[]>(this.apiUrl);
+  }
+
+  getMarca(id: number): Observable<Marca> {
+    return this.http.get<Marca>(`${this.apiUrl}/${id}`);
+  }
+
+  createMarca(marca: Marca): Observable<Marca> {
+    return this.http.post<Marca>(this.apiUrl, marca);
+  }
+
+  updateMarca(id: number, marca: Marca): Observable<Marca> {
+    return this.http.put<Marca>(`${this.apiUrl}/${id}`, marca);
+  }
+
+  deleteMarca(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\Marca\marca.ts -----
+
+export interface Marca {
+  id?: number;
+  nombre: string;
 }
 
 
@@ -1333,14 +3048,44 @@ describe('ProductoService', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\producto\producto.service.ts -----
 
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Producto } from './producto';
+import { environment } from '../../../environments/environment';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ProductoService {
+  private baseUrl = `${environment.apiUrl}/productos`;
 
-  constructor() { }
+  constructor(private http: HttpClient) {}
+
+  getProductos() {
+    return this.http.get<Producto[]>(this.baseUrl);
+  }
+
+  getProducto(id: number) {
+    return this.http.get<Producto>(`${this.baseUrl}/${id}`);
+  }
+
+  crearProducto(producto: Producto) {
+    return this.http.post<Producto>(this.baseUrl, producto);
+  }
+
+  actualizarProducto(producto: Producto) {
+    return this.http.put<Producto>(`${this.baseUrl}/${producto.id}`, producto);
+  }
+
+  eliminarProducto(id: number) {
+    return this.http.delete(`${this.baseUrl}/${id}`);
+  }
+
+  searchProductos(keyword: string) {
+    return this.http.get<Producto[]>(`${this.baseUrl}/buscar?keyword=${keyword}`);
+  }
+
+  getProductosBajoStock() {
+    return this.http.get<Producto[]>(`${this.baseUrl}/bajo-stock`);
+  }
 }
 
 
@@ -1380,19 +3125,45 @@ describe('ReseñaService', () => {
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\rese�a\rese�a.service.ts -----
 
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Resena } from './reseña';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
-export class ReseñaService {
+export class ResenaService {
+  private baseUrl = `${environment.apiUrl}/resenas`;
+  http: any;
 
-  constructor() { }
+
+  getAllResenas(): Observable<Resena[]> {
+    return this.http.get( `${this.baseUrl}/listar`);// Asumiendo que GET /reseñas lista todas
+  }
+  // Método para aprobar una reseña
+  aprobar(id: number): Observable<string> {
+    // El backend tiene PUT /reseñas/moderar/{id}
+    return this.http.put(`${this.baseUrl}/moderar/${id}`, {}, { responseType: 'text' });
+  }
+  // Método para rechazar/eliminar una reseña (asumiendo un endpoint en el backend)
+  // El backend no tiene un endpoint DELETE para reseñas en el contexto,
+  // pero si se "rechaza" una reseña, a menudo se elimina.
+  eliminar(id: number): Observable<string> {
+    // Asumiendo un endpoint DELETE /reseñas/{id}
+    return this.http.delete(`${this.baseUrl}/${id}`, { responseType: 'text' });
+  }
+  // Método para crear una reseña (para el COMPRADOR)
+  crearResena(resena: Resena): Observable<string> {
+    // El backend tiene POST /reseñas/crear
+    return this.http.post(`${this.baseUrl}/crear`, resena, { responseType: 'text' });
+  }
 }
 
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\rese�a\rese�a.ts -----
 
-export interface Reseña {
+export interface Resena {
   id?: number;
   productoId: number;
   comentario: string;
@@ -1423,14 +3194,35 @@ describe('UsuarioService', () => {
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\usuario\usuario.service.ts -----
 
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Usuario } from './usuario';
+import { environment } from '../../../environments/environment';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class UsuarioService {
+  private baseUrl = `${environment.apiUrl}/usuario`;
 
-  constructor() { }
+  constructor(private http: HttpClient) {}
+
+  obtenerPerfil() {
+    return this.http.get<Usuario>(`${this.baseUrl}/perfil`);
+  }
+
+  actualizarPerfil(usuario: Usuario) {
+    return this.http.put(`${this.baseUrl}/perfil`, usuario);
+  }
+
+  listarUsuarios() {
+  return this.http.get<Usuario[]>(`${this.baseUrl}/listar`);
+}
+  eliminarUsuario(id: number) {
+    return this.http.delete(`${this.baseUrl}/eliminar/${id}`);
+  }
+
+  buscarUsuarios(keyword: string) {
+    return this.http.get<Usuario[]>(`${this.baseUrl}/buscar?keyword=${keyword}`);
+  }
 }
 
 
@@ -1440,11 +3232,51 @@ export interface Usuario {
   id?: number;
   username: string;
   password?: string;
-  nombreCompleto?: string;
+  nombre?: string;
   direccion?: string;
   telefono?: string;
   role?: string;
 }
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\categoria.ts -----
+
+export interface Categoria {
+  id?: number;
+  nombre: string;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app-routing.module.ts -----
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { AuthGuard } from './guards/auth-guard.guard';
+import { AdminGuard } from './guards/admin-guard.guard';
+import { CarritoComponent } from './componentes/carrito/carrito.component';
+import { ProductsComponent } from './componentes/products/products.component';
+import { PedidosComponent } from './componentes/pedidos/pedidos.component';
+import { PerfilComponent } from './componentes/perfil/perfil.component';
+import { AdminComponent } from './componentes/admin/admin.component';
+import { LoginComponent } from './componentes/login/login.component';
+import { RegisterComponent } from './componentes/register/register.component';
+
+const routes: Routes = [
+  { path: 'productos', component: ProductsComponent },
+  { path: 'login', component: LoginComponent },
+  { path: 'registro', component: RegisterComponent },
+  { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+  { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+  { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+  { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] },
+  { path: '**', redirectTo: '' }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
 
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.component.css -----
@@ -1758,174 +3590,13 @@ export interface Usuario {
 </style>
 
 <!-- Toolbar -->
-<div class="toolbar" role="banner">
-  <img
-    width="40"
-    alt="Angular Logo"
-    src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTAgMjUwIj4KICAgIDxwYXRoIGZpbGw9IiNERDAwMzEiIGQ9Ik0xMjUgMzBMMzEuOSA2My4ybDE0LjIgMTIzLjFMMTI1IDIzMGw3OC45LTQzLjcgMTQuMi0xMjMuMXoiIC8+CiAgICA8cGF0aCBmaWxsPSIjQzMwMDJGIiBkPSJNMTI1IDMwdjIyLjItLjFWMjMwbDc4LjktNDMuNyAxNC4yLTEyMy4xTDEyNSAzMHoiIC8+CiAgICA8cGF0aCAgZmlsbD0iI0ZGRkZGRiIgZD0iTTEyNSA1Mi4xTDY2LjggMTgyLjZoMjEuN2wxMS43LTI5LjJoNDkuNGwxMS43IDI5LjJIMTgzTDEyNSA1Mi4xem0xNyA4My4zaC0zNGwxNy00MC45IDE3IDQwLjl6IiAvPgogIDwvc3ZnPg=="
-  />
-  <span>Welcome</span>
-    <div class="spacer"></div>
-    <a aria-label="Angular on X" target="_blank" rel="noopener" href="https://twitter.com/angular" title="X">
-      <svg id="twitter-logo" xmlns="http://www.w3.org/2000/svg" height="24" width="24" data-name="Logo" viewBox="0 0 512 512" fill="#fff">
-        <path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/>
-      </svg>
-    </a>
-    <a aria-label="Angular on YouTube" target="_blank" rel="noopener" href="https://youtube.com/angular" title="YouTube">
-      <svg id="youtube-logo" height="24" width="24" data-name="Logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#fff">
-        <path d="M0 0h24v24H0V0z" fill="none"/>
-        <path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15V9l5.2 3-5.2 3z"/>
-      </svg>
-    </a>
-</div>
-
-<div class="content" role="main">
-
-  <!-- Highlight Card -->
-  <div class="card highlight-card card-small">
-
-    <svg id="rocket" xmlns="http://www.w3.org/2000/svg" width="101.678" height="101.678" viewBox="0 0 101.678 101.678">
-      <title>Rocket Ship</title>
-      <g id="Group_83" data-name="Group 83" transform="translate(-141 -696)">
-        <circle id="Ellipse_8" data-name="Ellipse 8" cx="50.839" cy="50.839" r="50.839" transform="translate(141 696)" fill="#dd0031"/>
-        <g id="Group_47" data-name="Group 47" transform="translate(165.185 720.185)">
-          <path id="Path_33" data-name="Path 33" d="M3.4,42.615a3.084,3.084,0,0,0,3.553,3.553,21.419,21.419,0,0,0,12.215-6.107L9.511,30.4A21.419,21.419,0,0,0,3.4,42.615Z" transform="translate(0.371 3.363)" fill="#fff"/>
-          <path id="Path_34" data-name="Path 34" d="M53.3,3.221A3.09,3.09,0,0,0,50.081,0,48.227,48.227,0,0,0,18.322,13.437c-6-1.666-14.991-1.221-18.322,7.218A33.892,33.892,0,0,1,9.439,25.1l-.333.666a3.013,3.013,0,0,0,.555,3.553L23.985,43.641a2.9,2.9,0,0,0,3.553.555l.666-.333A33.892,33.892,0,0,1,32.647,53.3c8.55-3.664,8.884-12.326,7.218-18.322A48.227,48.227,0,0,0,53.3,3.221ZM34.424,9.772a6.439,6.439,0,1,1,9.106,9.106,6.368,6.368,0,0,1-9.106,0A6.467,6.467,0,0,1,34.424,9.772Z" transform="translate(0 0.005)" fill="#fff"/>
-        </g>
-      </g>
-    </svg>
-
-    <span>{{ title }} app is running!</span>
-
-    <svg id="rocket-smoke" xmlns="http://www.w3.org/2000/svg" width="516.119" height="1083.632" viewBox="0 0 516.119 1083.632">
-      <title>Rocket Ship Smoke</title>
-      <path id="Path_40" data-name="Path 40" d="M644.6,141S143.02,215.537,147.049,870.207s342.774,201.755,342.774,201.755S404.659,847.213,388.815,762.2c-27.116-145.51-11.551-384.124,271.9-609.1C671.15,139.365,644.6,141,644.6,141Z" transform="translate(-147.025 -140.939)" fill="#f5f5f5"/>
-    </svg>
-
-  </div>
-
-  <!-- Resources -->
-  <h2>Resources</h2>
-  <p>Here are some links to help you get started:</p>
-
-  <div class="card-container">
-    <a class="card" target="_blank" rel="noopener" href="https://angular.io/tutorial">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>
-      <span>Learn Angular</span>
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>    </a>
-
-    <a class="card" target="_blank" rel="noopener" href="https://angular.io/cli">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-      <span>CLI Documentation</span>
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-    </a>
-
-    <a class="card" target="_blank" rel="noopener" href="https://material.angular.io">
-      <svg xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px" width="21.813" height="23.453" viewBox="0 0 179.2 192.7"><path fill="#ffa726" d="M89.4 0 0 32l13.5 118.4 75.9 42.3 76-42.3L179.2 32 89.4 0z"/><path fill="#fb8c00" d="M89.4 0v192.7l76-42.3L179.2 32 89.4 0z"/><path fill="#ffe0b2" d="m102.9 146.3-63.3-30.5 36.3-22.4 63.7 30.6-36.7 22.3z"/><path fill="#fff3e0" d="M102.9 122.8 39.6 92.2l36.3-22.3 63.7 30.6-36.7 22.3z"/><path fill="#fff" d="M102.9 99.3 39.6 68.7l36.3-22.4 63.7 30.6-36.7 22.4z"/></svg>
-      <span>Angular Material</span>
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-    </a>
-
-    <a class="card" target="_blank" rel="noopener" href="https://blog.angular.io/">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>
-      <span>Angular Blog</span>
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-    </a>
-
-    <a class="card" target="_blank" rel="noopener" href="https://angular.io/devtools/">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#000000"><g><rect fill="none" height="24" width="24"/></g><g><g><path d="M14.73,13.31C15.52,12.24,16,10.93,16,9.5C16,5.91,13.09,3,9.5,3S3,5.91,3,9.5C3,13.09,5.91,16,9.5,16 c1.43,0,2.74-0.48,3.81-1.27L19.59,21L21,19.59L14.73,13.31z M9.5,14C7.01,14,5,11.99,5,9.5S7.01,5,9.5,5S14,7.01,14,9.5 S11.99,14,9.5,14z"/><polygon points="10.29,8.44 9.5,6 8.71,8.44 6.25,8.44 8.26,10.03 7.49,12.5 9.5,10.97 11.51,12.5 10.74,10.03 12.75,8.44"/></g></g></svg>
-      <span>Angular DevTools</span>
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-    </a>
-
-  </div>
-
-  <!-- Next Steps -->
-  <h2>Next Steps</h2>
-  <p>What do you want to do next with your app?</p>
-
-  <input type="hidden" #selection>
-
-  <div class="card-container">
-    <button class="card card-small" (click)="selection.value = 'component'" tabindex="0">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span>New Component</span>
-    </button>
-
-    <button class="card card-small" (click)="selection.value = 'material'" tabindex="0">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span>Angular Material</span>
-    </button>
-
-    <button class="card card-small" (click)="selection.value = 'pwa'" tabindex="0">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span>Add PWA Support</span>
-    </button>
-
-    <button class="card card-small" (click)="selection.value = 'dependency'" tabindex="0">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span>Add Dependency</span>
-    </button>
-
-    <button class="card card-small" (click)="selection.value = 'test'" tabindex="0">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span>Run and Watch Tests</span>
-    </button>
-
-    <button class="card card-small" (click)="selection.value = 'build'" tabindex="0">
-      <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span>Build for Production</span>
-    </button>
-  </div>
-
-  <!-- Terminal -->
-  <div class="terminal" [ngSwitch]="selection.value">
-      <pre *ngSwitchDefault>ng generate component xyz</pre>
-      <pre *ngSwitchCase="'material'">ng add @angular/material</pre>
-      <pre *ngSwitchCase="'pwa'">ng add @angular/pwa</pre>
-      <pre *ngSwitchCase="'dependency'">ng add _____</pre>
-      <pre *ngSwitchCase="'test'">ng test</pre>
-      <pre *ngSwitchCase="'build'">ng build</pre>
-  </div>
-
-  <!-- Links -->
-  <div class="card-container">
-    <a class="circle-link" title="Find a Local Meetup" href="https://www.meetup.com/find/?keywords=angular" target="_blank" rel="noopener">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24.607" height="23.447" viewBox="0 0 24.607 23.447">
-        <title>Meetup Logo</title>
-        <path id="logo--mSwarm" d="M21.221,14.95A4.393,4.393,0,0,1,17.6,19.281a4.452,4.452,0,0,1-.8.069c-.09,0-.125.035-.154.117a2.939,2.939,0,0,1-2.506,2.091,2.868,2.868,0,0,1-2.248-.624.168.168,0,0,0-.245-.005,3.926,3.926,0,0,1-2.589.741,4.015,4.015,0,0,1-3.7-3.347,2.7,2.7,0,0,1-.043-.38c0-.106-.042-.146-.143-.166a3.524,3.524,0,0,1-1.516-.69A3.623,3.623,0,0,1,2.23,14.557a3.66,3.66,0,0,1,1.077-3.085.138.138,0,0,0,.026-.2,3.348,3.348,0,0,1-.451-1.821,3.46,3.46,0,0,1,2.749-3.28.44.44,0,0,0,.355-.281,5.072,5.072,0,0,1,3.863-3,5.028,5.028,0,0,1,3.555.666.31.31,0,0,0,.271.03A4.5,4.5,0,0,1,18.3,4.7a4.4,4.4,0,0,1,1.334,2.751,3.658,3.658,0,0,1,.022.706.131.131,0,0,0,.1.157,2.432,2.432,0,0,1,1.574,1.645,2.464,2.464,0,0,1-.7,2.616c-.065.064-.051.1-.014.166A4.321,4.321,0,0,1,21.221,14.95ZM13.4,14.607a2.09,2.09,0,0,0,1.409,1.982,4.7,4.7,0,0,0,1.275.221,1.807,1.807,0,0,0,.9-.151.542.542,0,0,0,.321-.545.558.558,0,0,0-.359-.534,1.2,1.2,0,0,0-.254-.078c-.262-.047-.526-.086-.787-.138a.674.674,0,0,1-.617-.75,3.394,3.394,0,0,1,.218-1.109c.217-.658.509-1.286.79-1.918a15.609,15.609,0,0,0,.745-1.86,1.95,1.95,0,0,0,.06-1.073,1.286,1.286,0,0,0-1.051-1.033,1.977,1.977,0,0,0-1.521.2.339.339,0,0,1-.446-.042c-.1-.092-.2-.189-.307-.284a1.214,1.214,0,0,0-1.643-.061,7.563,7.563,0,0,1-.614.512A.588.588,0,0,1,10.883,8c-.215-.115-.437-.215-.659-.316a2.153,2.153,0,0,0-.695-.248A2.091,2.091,0,0,0,7.541,8.562a9.915,9.915,0,0,0-.405.986c-.559,1.545-1.015,3.123-1.487,4.7a1.528,1.528,0,0,0,.634,1.777,1.755,1.755,0,0,0,1.5.211,1.35,1.35,0,0,0,.824-.858c.543-1.281,1.032-2.584,1.55-3.875.142-.355.28-.712.432-1.064a.548.548,0,0,1,.851-.24.622.622,0,0,1,.185.539,2.161,2.161,0,0,1-.181.621c-.337.852-.68,1.7-1.018,2.552a2.564,2.564,0,0,0-.173.528.624.624,0,0,0,.333.71,1.073,1.073,0,0,0,.814.034,1.22,1.22,0,0,0,.657-.655q.758-1.488,1.511-2.978.35-.687.709-1.37a1.073,1.073,0,0,1,.357-.434.43.43,0,0,1,.463-.016.373.373,0,0,1,.153.387.7.7,0,0,1-.057.236c-.065.157-.127.316-.2.469-.42.883-.846,1.763-1.262,2.648A2.463,2.463,0,0,0,13.4,14.607Zm5.888,6.508a1.09,1.09,0,0,0-2.179.006,1.09,1.09,0,0,0,2.179-.006ZM1.028,12.139a1.038,1.038,0,1,0,.01-2.075,1.038,1.038,0,0,0-.01,2.075ZM13.782.528a1.027,1.027,0,1,0-.011,2.055A1.027,1.027,0,0,0,13.782.528ZM22.21,6.95a.882.882,0,0,0-1.763.011A.882.882,0,0,0,22.21,6.95ZM4.153,4.439a.785.785,0,1,0,.787-.78A.766.766,0,0,0,4.153,4.439Zm8.221,18.22a.676.676,0,1,0-.677.666A.671.671,0,0,0,12.374,22.658ZM22.872,12.2a.674.674,0,0,0-.665.665.656.656,0,0,0,.655.643.634.634,0,0,0,.655-.644A.654.654,0,0,0,22.872,12.2ZM7.171-.123A.546.546,0,0,0,6.613.43a.553.553,0,1,0,1.106,0A.539.539,0,0,0,7.171-.123ZM24.119,9.234a.507.507,0,0,0-.493.488.494.494,0,0,0,.494.494.48.48,0,0,0,.487-.483A.491.491,0,0,0,24.119,9.234Zm-19.454,9.7a.5.5,0,0,0-.488-.488.491.491,0,0,0-.487.5.483.483,0,0,0,.491.479A.49.49,0,0,0,4.665,18.936Z" transform="translate(0 0.123)" fill="#f64060"/>
-      </svg>
-    </a>
-
-    <a class="circle-link" title="Join the Conversation on Discord" href="https://discord.gg/angular" target="_blank" rel="noopener">
-      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 245 240">
-        <title>Discord Logo</title>
-        <path d="M104.4 103.9c-5.7 0-10.2 5-10.2 11.1s4.6 11.1 10.2 11.1c5.7 0 10.2-5 10.2-11.1.1-6.1-4.5-11.1-10.2-11.1zM140.9 103.9c-5.7 0-10.2 5-10.2 11.1s4.6 11.1 10.2 11.1c5.7 0 10.2-5 10.2-11.1s-4.5-11.1-10.2-11.1z"/>
-        <path d="M189.5 20h-134C44.2 20 35 29.2 35 40.6v135.2c0 11.4 9.2 20.6 20.5 20.6h113.4l-5.3-18.5 12.8 11.9 12.1 11.2 21.5 19V40.6c0-11.4-9.2-20.6-20.5-20.6zm-38.6 130.6s-3.6-4.3-6.6-8.1c13.1-3.7 18.1-11.9 18.1-11.9-4.1 2.7-8 4.6-11.5 5.9-5 2.1-9.8 3.5-14.5 4.3-9.6 1.8-18.4 1.3-25.9-.1-5.7-1.1-10.6-2.7-14.7-4.3-2.3-.9-4.8-2-7.3-3.4-.3-.2-.6-.3-.9-.5-.2-.1-.3-.2-.4-.3-1.8-1-2.8-1.7-2.8-1.7s4.8 8 17.5 11.8c-3 3.8-6.7 8.3-6.7 8.3-22.1-.7-30.5-15.2-30.5-15.2 0-32.2 14.4-58.3 14.4-58.3 14.4-10.8 28.1-10.5 28.1-10.5l1 1.2c-18 5.2-26.3 13.1-26.3 13.1s2.2-1.2 5.9-2.9c10.7-4.7 19.2-6 22.7-6.3.6-.1 1.1-.2 1.7-.2 6.1-.8 13-1 20.2-.2 9.5 1.1 19.7 3.9 30.1 9.6 0 0-7.9-7.5-24.9-12.7l1.4-1.6s13.7-.3 28.1 10.5c0 0 14.4 26.1 14.4 58.3 0 0-8.5 14.5-30.6 15.2z"/>
-      </svg>
-    </a>
-  </div>
+ <app-navbar></app-navbar>
+    <!-- Aquí es donde Angular inyectará el componente de la ruta activa -->
+    <div class="main-content">
+      <router-outlet></router-outlet>
+    </div>
 
   <!-- Footer -->
-  <footer>
-      Love Angular?&nbsp;
-      <a href="https://github.com/angular/angular" target="_blank" rel="noopener"> Give our repo a star.
-        <div class="github-star-badge">
-            <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-          Star
-        </div>
-      </a>
-      <a href="https://github.com/angular/angular" target="_blank" rel="noopener">
-        <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" fill="#1976d2"/><path d="M0 0h24v24H0z" fill="none"/></svg>
-      </a>
-  </footer>
-
-  <svg id="clouds" xmlns="http://www.w3.org/2000/svg" width="2611.084" height="485.677" viewBox="0 0 2611.084 485.677">
-    <title>Gray Clouds Background</title>
-    <path id="Path_39" data-name="Path 39" d="M2379.709,863.793c10-93-77-171-168-149-52-114-225-105-264,15-75,3-140,59-152,133-30,2.83-66.725,9.829-93.5,26.25-26.771-16.421-63.5-23.42-93.5-26.25-12-74-77-130-152-133-39-120-212-129-264-15-54.084-13.075-106.753,9.173-138.488,48.9-31.734-39.726-84.4-61.974-138.487-48.9-52-114-225-105-264,15a162.027,162.027,0,0,0-103.147,43.044c-30.633-45.365-87.1-72.091-145.206-58.044-52-114-225-105-264,15-75,3-140,59-152,133-53,5-127,23-130,83-2,42,35,72,70,86,49,20,106,18,157,5a165.625,165.625,0,0,0,120,0c47,94,178,113,251,33,61.112,8.015,113.854-5.72,150.492-29.764a165.62,165.62,0,0,0,110.861-3.236c47,94,178,113,251,33,31.385,4.116,60.563,2.495,86.487-3.311,25.924,5.806,55.1,7.427,86.488,3.311,73,80,204,61,251-33a165.625,165.625,0,0,0,120,0c51,13,108,15,157-5a147.188,147.188,0,0,0,33.5-18.694,147.217,147.217,0,0,0,33.5,18.694c49,20,106,18,157,5a165.625,165.625,0,0,0,120,0c47,94,178,113,251,33C2446.709,1093.793,2554.709,922.793,2379.709,863.793Z" transform="translate(142.69 -634.312)" fill="#eee"/>
-  </svg>
-
-</div>
 
 <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
 <!-- * * * * * * * * * * * The content above * * * * * * * * * * * -->
@@ -1935,7 +3606,7 @@ export interface Usuario {
 <!-- * * * * * * * * * * End of Placeholder * * * * * * * * * * * -->
 <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
 
-<router-outlet></router-outlet>
+
 
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.component.spec.ts -----
@@ -1974,24 +3645,33 @@ describe('AppComponent', () => {
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
+import { NavbarComponent } from './layout/navbar/navbar.componet';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+  styleUrls: ['./app.component.css'],
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    NavbarComponent
+  ]
 })
 export class AppComponent {
   title = 'app-ventas';
+  selection = { value: 'default' };
 }
 
 
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.config.ts -----
 
-import { ApplicationConfig, provideZoneChangeDetection, provideHttpClient, withInterceptors, provideRouter } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection} from '@angular/core';
 import { routes } from './app.routes';
-import { JwtInterceptor } from './auth/JwtInterceptor';
+import { provideRouter } from '@angular/router';
+import {JwtInterceptor} from  './auth/JwtInterceptor';
+import {provideHttpClient, withInterceptors} from '@angular/common/http';
+
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -2002,25 +3682,107 @@ export const appConfig: ApplicationConfig = {
 };
 
 
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.module.ts -----
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+import { AppRoutingModule } from './app-routing.module';
+
+import { ProductFormComponent } from './componentes/product-form/product-form.component';
+import { RegisterComponent } from './componentes/register/register.component';
+import { PedidosComponent } from './componentes/pedidos/pedidos.component';
+import { PerfilComponent } from './componentes/perfil/perfil.component';
+import { AdminComponent } from './componentes/admin/admin.component';
+
+
+import { UserManagementComponent } from './componentes/user-management/user-management.component';
+import { OrderManagementComponent } from './componentes/order-management/order-management.component';
+import { CategoryManagementComponent } from './componentes/category-management/category-management.component';
+
+
+// Agrega aquí todos tus componentes...
+
+@NgModule({
+  declarations: [
+
+
+
+    PedidosComponent,
+
+    AdminComponent,
+    UserManagementComponent,
+    OrderManagementComponent,
+
+
+  ],
+  imports: [
+    BrowserModule,
+    FormsModule,
+    CommonModule,
+    HttpClientModule, // Necesario para las llamadas HTTP
+    AppRoutingModule
+    // otros módulos como HttpClientModule, RouterModule, etc.
+  ],
+  providers: [],
+
+})
+export class AppModule { }
+
+
 ----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.routes.ts -----
 
+import { UserAdminGuard } from './guards/user.admin-guard';
 import { Routes } from '@angular/router';
-import { Login } from './componentes/login/login';
-import { Register } from './componentes/register/register';
-import { Products } from './componentes/products/products';
-import { ProductForm } from './componentes/product-form/product-form';
-import { Admin } from './componentes/admin/admin';
-import { authGuard } from './guards/authGuard';
-import { adminGuard } from './guards/adminGuard';
+import { LoginComponent } from './componentes/login/login.component';
+import { RegisterComponent } from './componentes/register/register.component';
+import { ProductsComponent } from './componentes/products/products.component';
+import { ProductFormComponent } from './componentes/product-form/product-form.component';
+import { AdminComponent } from './componentes/admin/admin.component';
+import { AuthGuard } from './guards/auth-guard.guard';
+import { AdminGuard } from './guards/admin-guard.guard';
+import { CarritoComponent } from './componentes/carrito/carrito.component';
+import { PedidosComponent } from './componentes/pedidos/pedidos.component';
+import { PerfilComponent } from './componentes/perfil/perfil.component';
+import { UserManagementComponent } from './componentes/user-management/user-management.component';
+import { OrderManagementComponent } from './componentes/order-management/order-management.component';
+import { CategoryManagementComponent } from './componentes/category-management/category-management.component';
+import { BrandManagementComponent } from './componentes/brand-management/brand-management.component';
+import { ReviewManagementComponent } from './componentes/review-management/review-management.component';
+
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
-  { path: 'login', component: Login },
-  { path: 'register', component: Register },
-  { path: 'products', component: Products, canActivate: [authGuard] },
-  { path: 'admin', component: Admin, canActivate: [adminGuard] },
-  { path: 'admin/create', component: ProductForm, canActivate: [adminGuard] },
-  { path: '**', redirectTo: 'login' }
+  { path: 'login', component: LoginComponent },
+  { path: 'register', component: RegisterComponent },
+  // { path: 'register-comprador', component: RegisterCompradorComponent },
+
+  // Rutas para compradores
+  { path: 'products', component: ProductsComponent},
+  { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+  { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+  { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+
+  // Rutas para usuarios (mantenimiento)
+  // { path: 'admin/productos', component: AdminProductosComponent, canActivate: [AuthGuard] },
+  { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] },
+  { path: 'admin/productos', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+  { path: 'admin/productos/nuevo', component: ProductFormComponent, canActivate: [AdminGuard] },
+  { path: 'admin/productos/editar/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+
+  // Rutas exclusivas para administradores
+  { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
+   { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [AdminGuard] },
+
+  // { path: 'admin/usuarios', component: AdminUsuariosComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/registro-usuario', component: RegistroUsuarioAdminComponent, canActivate: [AdminGuard] },
+
+  { path: '', redirectTo: '/products', pathMatch: 'full' },
+  { path: '**', redirectTo: '/products' }
 ];
 
 
