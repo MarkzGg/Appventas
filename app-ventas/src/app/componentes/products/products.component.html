@@ -1,0 +1,15 @@
+<h2>Catálogo de Productos</h2>
+
+<ul>
+  <li *ngFor="let producto of productos" (click)="seleccionarProducto(producto)">
+    <strong>{{ producto.nombre }}</strong> - S/ {{ producto.precio }}
+  </li>
+</ul>
+
+<div *ngIf="productoSeleccionado">
+  <h3>Detalle del Producto</h3>
+  <p><strong>Nombre:</strong> {{ productoSeleccionado.nombre }}</p>
+  <p><strong>Descripción:</strong> {{ productoSeleccionado.descripcion }}</p>
+  <p><strong>Precio:</strong> S/ {{ productoSeleccionado.precio }}</p>
+  <p><strong>Stock:</strong> {{ productoSeleccionado.stock }}</p>
+</div>

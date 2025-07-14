@@ -1,0 +1,31 @@
+.pedido {
+  border: 1px solid #ccc;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+th, td {
+  padding: 8px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+.total {
+  font-weight: bold;
+  text-align: right;
+  margin-top: 0.5rem;
+}
+
+.mensaje {
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+}

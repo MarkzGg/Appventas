@@ -1,0 +1,25 @@
+<h2>Historial de Pedidos</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div *ngFor="let pedido of pedidos" class="pedido">
+  <h4>Pedido #{{ pedido.id }} - {{ pedido.fecha }}</h4>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let detalle of pedido.detalles">
+        <td>{{ detalle.producto }}</td>
+        <td>{{ detalle.cantidad }}</td>
+        <td>S/ {{ detalle.subtotal }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="total">Total: S/ {{ calcularSubtotal(pedido) }}</p>
+</div>

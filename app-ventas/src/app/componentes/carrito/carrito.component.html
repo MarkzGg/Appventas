@@ -1,0 +1,27 @@
+<h2>Mi Carrito</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="carrito.length > 0">
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th>Precio</th>
+      <th>Cantidad</th>
+      <th>Subtotal</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let item of carrito">
+      <td>{{ item.producto?.nombre }}</td>
+      <td>S/ {{ item.producto?.precio }}</td>
+      <td>{{ item.cantidad }}</td>
+      <td>S/ {{ item.producto?.precio * item.cantidad }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="carrito.length > 0" class="total">Total: S/ {{ getTotal() }}</p>
+
+<button *ngIf="carrito.length > 0" (click)="limpiarCarrito()">Vaciar Carrito</button>
+<p *ngIf="carrito.length === 0">Tu carrito está vacío.</p>

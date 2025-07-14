@@ -1,0 +1,19 @@
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 8px;
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+}
+
+li:hover {
+  background-color: #f2f2f2;
+}
+
+.selected {
+  font-weight: bold;
+  color: #007bff;
+}

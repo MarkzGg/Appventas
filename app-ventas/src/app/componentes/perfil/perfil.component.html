@@ -1,0 +1,27 @@
+<h2>Mi Perfil</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<form (ngSubmit)="actualizarPerfil()">
+  <div>
+    <label for="username">Usuario:</label>
+    <input type="text" id="username" [(ngModel)]="usuario.username" name="username" readonly />
+  </div>
+
+  <div>
+    <label for="nombre">Nombre completo:</label>
+    <input type="text" id="nombre" [(ngModel)]="usuario.nombreCompleto" name="nombreCompleto" required />
+  </div>
+
+  <div>
+    <label for="direccion">Dirección:</label>
+    <input type="text" id="direccion" [(ngModel)]="usuario.direccion" name="direccion" required />
+  </div>
+
+  <div>
+    <label for="telefono">Teléfono:</label>
+    <input type="text" id="telefono" [(ngModel)]="usuario.telefono" name="telefono" required />
+  </div>
+
+  <button type="submit">Actualizar</button>
+</form>

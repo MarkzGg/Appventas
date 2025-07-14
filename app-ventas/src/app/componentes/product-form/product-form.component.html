@@ -1,0 +1,27 @@
+<h2>{{ editando ? 'Editar' : 'Nuevo' }} Producto</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<form (ngSubmit)="guardar()">
+  <div>
+    <label for="nombre">Nombre:</label>
+    <input id="nombre" [(ngModel)]="producto.nombre" name="nombre" required />
+  </div>
+
+  <div>
+    <label for="descripcion">Descripción:</label>
+    <input id="descripcion" [(ngModel)]="producto.descripcion" name="descripcion" required />
+  </div>
+
+  <div>
+    <label for="precio">Precio:</label>
+    <input type="number" id="precio" [(ngModel)]="producto.precio" name="precio" required min="0" />
+  </div>
+
+  <div>
+    <label for="stock">Stock:</label>
+    <input type="number" id="stock" [(ngModel)]="producto.stock" name="stock" required min="0" />
+  </div>
+
+  <button type="submit">Guardar</button>
+</form>

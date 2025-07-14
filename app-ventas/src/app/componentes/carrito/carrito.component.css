@@ -1,0 +1,36 @@
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ccc;
+  text-align: center;
+}
+
+.total {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: right;
+  margin-bottom: 1rem;
+}
+
+button {
+  padding: 10px 15px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #c82333;
+}
+
+.mensaje {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: green;
+}
