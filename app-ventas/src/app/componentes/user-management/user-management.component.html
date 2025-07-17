@@ -16,22 +16,20 @@
     <tr *ngFor="let user of usuarios">
       <td>{{ user.id }}</td>
       <td>{{ user.username }}</td>
-      <td>{{ user.nombre || 'N/A' }}</td>
-      <td>{{ user.role }}</td>
+      <td>{{ user.nombre || 'N/A' }}</td> <!-- Usamos el operador || para mostrar 'N/A' si es null/undefined -->
+      <td>{{ user.role || 'N/A' }}</td>   <!-- Usamos el operador || para mostrar 'N/A' si es null/undefined -->
       <td>
-        <!-- Editar solo si es ADMIN o el propio usuario -->
-        <button (click)="editarUsuario(user.id!)"
-                *ngIf="authService.isAdmin() || authService.getLoggedInUsername() === user.username">
+        <!-- Editar solo si es ADMIN -->
+        <button (click)="abrirModalEditarUsuario(user)" *ngIf="authService.isAdmin()">
           Editar
         </button>
         <!-- Eliminar solo si es ADMIN -->
-        <button (click)="eliminarUsuario(user.id!)"
-                *ngIf="authService.isAdmin()"
-                style="background-color: #dc3545;">
+        <button (click)="eliminarUsuario(user.id!)" *ngIf="authService.isAdmin()" style="background-color: #dc3545;">
           Eliminar
         </button>
         <!-- Asignar Rol solo si es ADMIN -->
-        <select *ngIf="authService.isAdmin()" #rolSelect (change)="asignarRol(user.username, rolSelect.value)">
+        <!-- Aquí el user.username podría ser null si la interfaz lo permite, por eso se añade el ?. -->
+        <select *ngIf="authService.isAdmin()" (change)="asignarRol(user.username!, $event)">
           <option value="">Asignar Rol</option>
           <option value="ADMIN">ADMIN</option>
           <option value="USER">USER</option>

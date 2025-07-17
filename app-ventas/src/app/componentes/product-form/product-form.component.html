@@ -1,27 +1,45 @@
-<h2>{{ editando ? 'Editar' : 'Nuevo' }} Producto</h2>
+        <h2>{{ editando ? 'Editar' : 'Nuevo' }} Producto</h2>
 
-<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+        <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-<form (ngSubmit)="guardar()">
-  <div>
-    <label for="nombre">Nombre:</label>
-    <input id="nombre" [(ngModel)]="producto.nombre" name="nombre" required />
-  </div>
+        <form (ngSubmit)="guardar()">
+          <div>
+            <label for="nombre">Nombre:</label>
+            <input id="nombre" [(ngModel)]="producto.nombre" name="nombre" required />
+          </div>
 
-  <div>
-    <label for="descripcion">Descripción:</label>
-    <input id="descripcion" [(ngModel)]="producto.descripcion" name="descripcion" required />
-  </div>
+          <div>
+            <label for="descripcion">Descripción:</label>
+            <input id="descripcion" [(ngModel)]="producto.descripcion" name="descripcion" required />
+          </div>
 
-  <div>
-    <label for="precio">Precio:</label>
-    <input type="number" id="precio" [(ngModel)]="producto.precio" name="precio" required min="0" />
-  </div>
+          <div>
+            <label for="precio">Precio:</label>
+            <input type="number" id="precio" [(ngModel)]="producto.precio" name="precio" required min="0" />
+          </div>
 
-  <div>
-    <label for="stock">Stock:</label>
-    <input type="number" id="stock" [(ngModel)]="producto.stock" name="stock" required min="0" />
-  </div>
+          <div>
+            <label for="stock">Stock:</label>
+            <input type="number" id="stock" [(ngModel)]="producto.stock" name="stock" required min="0" />
+          </div>
 
-  <button type="submit">Guardar</button>
-</form>
+          <div>
+            <label for="marca">Marca:</label>
+            <select id="marca" [(ngModel)]="producto.marca!.id" name="marca">
+              <option [ngValue]="null">Seleccione una marca</option>
+              <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="categoria">Categoría:</label>
+            <select id="categoria" [(ngModel)]="producto.categoria!.id" name="categoria">
+              <option [ngValue]="null">Seleccione una categoría</option>
+              <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
+            </select>
+          </div>
+
+          <button type="submit">Guardar</button>
+          <button type="button" (click)="cancelar()" style="background-color: gray;">Cancelar</button>
+        </form>
+        

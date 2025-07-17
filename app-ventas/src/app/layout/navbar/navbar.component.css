@@ -1,0 +1,47 @@
+nav {
+      background-color: #333333; /* Gris oscuro para el fondo de la barra */
+      padding: 15px 20px;
+      display: flex;
+      justify-content: flex-start; /* Alinea los elementos a la izquierda */
+      align-items: center;
+      gap: 20px; /* Espacio entre los enlaces */
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      position: sticky; /* Fija la barra de navegación */
+      top: 0;
+      z-index: 1000; /* Asegura que esté por encima de otros elementos */
+    }
+    nav a {
+      color: #FFFFFF; /* Texto blanco para los enlaces */
+      text-decoration: none;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 4px;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    nav a:hover {
+      background-color: #1E88E5; /* Azul para el hover */
+      color: #FFFFFF;
+    }
+    nav button {
+      background-color: #E53935; /* Rojo para el botón de salir */
+      color: #FFFFFF;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.3s ease;
+      margin-left: auto; /* Empuja el botón de salir a la derecha */
+    }
+    nav button:hover {
+      background-color: #C82333; /* Rojo más oscuro en hover */
+    }
+    footer {
+      background-color: #333333;
+      color: #FFFFFF;
+      text-align: center;
+      padding: 15px 0;
+      margin-top: 40px;
+      width: 100%;
+      box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+    }

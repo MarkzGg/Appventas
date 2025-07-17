@@ -41,7 +41,7 @@ export class AuthService {
 
   register(credentials: { username: string; password: string }): Observable<any> {
     // Asumiendo que tu backend tiene un endpoint /registro para usuarios normales
-    return this.http.post(`${environment.apiUrl}/registro`, credentials);
+    return this.http.post(`${environment.apiUrl}/registro-comprador`, credentials);
   }
 
   getLoggedInUsername(): string | null {
@@ -87,19 +87,19 @@ export class AuthService {
   }
 
   isAdmin(): boolean {
-    return this.getRole()==='ROLE_ADMIN';
+    return this.getRole()==='ADMIN';
   }
 
   isUser(): boolean {
-    return this.getRole() === 'ROLE_USER';
+    return this.getRole() === 'USER';
   }
 
   isComprador(): boolean {
-    return this.getRole() === 'ROLE_COMPRADOR';
+    return this.getRole() === 'COMPRADOR';
   }
 
   isVisitante(): boolean {
-    return this.getRole() === 'ROLE_VISITANTE';
+    return this.getRole() === 'VISITANTE';
   }
 
 
@@ -178,6 +178,7 @@ th, td {
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
+<button *ngIf="authService.isAdmin()" (click)="editarProducto(0)">Nuevo Producto</button>
 <button (click)="editarProducto(0)">Nuevo Producto</button>
 
 <table *ngIf="productos.length > 0">
@@ -195,9 +196,10 @@ th, td {
       <td>S/ {{ producto.precio }}</td>
       <td>{{ producto.stock }}</td>
       <td>
-        <button (click)="editarProducto(producto.id!)">Editar</button>
-        <button (click)="eliminarProducto(producto.id!)">Eliminar</button>
-      </td>
+       <button *ngIf="authService.isUser() || authService.isAdmin()" (click)="editarProducto(producto.id!)">Editar</button>
+            <!-- Botón "Eliminar": Solo visible para ADMIN -->
+            <button *ngIf="authService.isAdmin()" (click)="eliminarProducto(producto.id!)">Eliminar</button>
+          </td>
     </tr>
   </tbody>
 </table>
@@ -238,19 +240,27 @@ import { Producto } from 'src/app/model/producto/producto';
 import { ProductoService } from 'src/app/model/producto/producto.service';
 import { Router } from '@angular/router';
 import { Usuario } from 'src/app/model/usuario/usuario';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AuthService } from 'src/app/auth/AuthService';
 // Asegúrate de que este modelo exista
 
 @Component({
   selector: 'app-admin',
   templateUrl: './admin.component.html',
-  styleUrls: ['./admin.component.css']
+  styleUrls: ['./admin.component.css'],
+  standalone: true, // Asumiendo que es standalone
+  imports: [
+    CommonModule, // Si es necesario
+    FormsModule // Si estás usando formularios
+  ]
 })
 export class AdminComponent implements OnInit {
   productos: Producto[] = [];
 
   mensaje = '';
 
-  constructor(private productoService: ProductoService, private router: Router) {}
+  constructor(private productoService: ProductoService, private router: Router,public authService: AuthService) {}
 
   ngOnInit(): void {
     this.obtenerProductos();
@@ -266,15 +276,20 @@ export class AdminComponent implements OnInit {
   }
 
   editarProducto(id: number): void {
-    this.router.navigate(['/admin/create'], { queryParams: { id } });
-  }
+        // Redirige a la ruta de creación/edición
+        if (id === 0) { // Nuevo producto
+          this.router.navigate(['/admin/productos/create']);
+        } else { // Editar producto existente
+          this.router.navigate(['/admin/productos/edit', id]);
+        }
+      }
 
   eliminarProducto(id: number): void {
-    this.productoService.eliminarProducto(id).subscribe({
-      next: () => this.obtenerProductos(),
-      error: () => this.mensaje = 'No se pudo eliminar el producto'
-    });
-  }
+        this.productoService.eliminarProducto(id).subscribe({
+          next: () => this.obtenerProductos(),
+          error: () => this.mensaje = 'No se pudo eliminar el producto'
+        });
+      }
 
 
 }
@@ -1166,7 +1181,6 @@ describe('LoginComponent', () => {
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from 'src/app/auth/AuthService';
-
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -1189,9 +1203,11 @@ export class LoginComponent {
   constructor(private authService: AuthService, private router: Router) {}
 
   login() {
+  console.log('LoginComponent: Iniciando proceso de login para:', this.username);
   this.authService.login({ username: this.username, password: this.password })
     .subscribe({
       next: (res: any) => {
+        console.log('LoginComponent: Login exitoso. Redirigiendo...');
         this.authService.saveToken(res.token);
 
         // Redirección según rol
@@ -1202,8 +1218,13 @@ export class LoginComponent {
           this.router.navigate(['/products']);
         }
       },
-      error: () => {
+      error: (err) => {
+        console.error('LoginComponent: Error en el login:', err);
         this.error = 'Usuario o contraseña incorrectos';
+        if (err.message) {
+                this.error = err.message; // Mostrar el mensaje de error del servicio si está disponible
+              }
+
       }
     });
 }
@@ -1823,6 +1844,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { AuthService } from 'src/app/auth/AuthService';
 
 @Component({
   selector: 'app-product-form',
@@ -1847,29 +1869,42 @@ export class ProductFormComponent implements OnInit {
   constructor(
     private productoService: ProductoService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private authService: AuthService
   ) {}
 
-  ngOnInit(): void {
-    const id = this.route.snapshot.queryParamMap.get('id');
-    if (id && id !== '0') {
-      this.editando = true;
-      this.productoService.getProducto(Number(id)).subscribe({
-        next: (data) => this.producto = data,
-        error: () => this.mensaje = 'No se pudo cargar el producto'
+ngOnInit(): void {
+      // Obtener el ID de la URL (para edición)
+      this.route.paramMap.subscribe(params => {
+        const id = params.get('id');
+        if (id) {
+          this.editando = true;
+          this.productoService.getProducto(Number(id)).subscribe({
+            next: (data) => this.producto = data,
+            error: () => this.mensaje = 'No se pudo cargar el producto'
+          });
+        }
       });
-    }
-  }
+}
 
-  guardar(): void {
+guardar(): void {
+    // Validar permisos antes de guardar
+    if (this.editando && !(this.authService.isUser() || this.authService.isAdmin())) {
+      this.mensaje = 'No tienes permiso para editar productos.';
+      return;
+    }
+    if (!this.editando && !this.authService.isAdmin()) {
+      this.mensaje = 'No tienes permiso para crear productos.';
+      return;
+    }
     if (this.editando) {
       this.productoService.actualizarProducto(this.producto).subscribe({
-        next: () => this.router.navigate(['/admin']),
+        next: () => this.router.navigate(['/admin/productos']),
         error: () => this.mensaje = 'Error al actualizar producto'
       });
     } else {
       this.productoService.crearProducto(this.producto).subscribe({
-        next: () => this.router.navigate(['/admin']),
+        next: () => this.router.navigate(['/admin/productos']),
         error: () => this.mensaje = 'Error al crear producto'
       });
     }
@@ -1964,7 +1999,12 @@ import { CarritoService } from 'src/app/model/carrito-item/carrito.service';
 @Component({
   selector: 'app-products',
   templateUrl: './products.component.html',
-  styleUrls: ['./products.component.css']
+  styleUrls: ['./products.component.css'],
+      standalone: true, // Asegúrate de que esto esté aquí
+      imports: [
+        CommonModule, // <-- ¡Añadir CommonModule aquí!
+        RouterModule
+      ]
 })
 export class ProductsComponent implements OnInit {
   productos: Producto[] = [];
@@ -2001,9 +2041,9 @@ export class ProductsComponent implements OnInit {
   }
 
   loadProducts() {
-    this.http.get<any[]>(`${environment.apiUrl}/api/products`).subscribe(data => {
-      this.productos = data;
-    });
+    this.productoService.getProductos().subscribe(data => { // Usar el servicio ProductoService
+          this.productos = data;
+        });
   }
 
   deleteProduct(id: number) {
@@ -2084,17 +2124,17 @@ button:hover {
 <form (ngSubmit)="register()">
   <div>
     <label for="username">Usuario:</label>
-    <input type="text" id="username" [(ngModel)]="username" name="username" required />
+    <input type="text" id="username" [(ngModel)]="username" name="username" required minlength="4" />
   </div>
 
   <div>
     <label for="password">Contraseña:</label>
-    <input type="password" id="password" [(ngModel)]="password" name="password" required />
+    <input type="password" id="password" [(ngModel)]="password" name="password" required minlength="8"/>
   </div>
 
   <div>
     <label for="confirmPassword">Confirmar Contraseña:</label>
-    <input type="password" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" required />
+    <input type="password" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" required minlength="8" />
   </div>
 
   <button type="submit">Registrarse</button>
@@ -2133,6 +2173,7 @@ import { Router } from '@angular/router';
 import { AuthService } from 'src/app/auth/AuthService';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-register',
@@ -2153,16 +2194,36 @@ export class RegisterComponent {
   constructor(private authService: AuthService, private router: Router) {}
 
   register() {
-    if (this.password !== this.confirmPassword) {
-      this.error = 'Las contraseñas no coinciden';
-      return;
-    }
+        this.error = ''; // Limpiar errores al intentar registrar
+        // Validaciones de longitud en el frontend
+        if (this.username.length < 4) {
+          this.error = 'El nombre de usuario debe tener al menos 4 caracteres.';
+          return;
+        }
+        if (this.password.length < 8) {
+          this.error = 'La contraseña debe tener al menos 8 caracteres.';
+          return;
+        }
+        if (this.password !== this.confirmPassword) {
+          this.error = 'Las contraseñas no coinciden';
+          return;
+        }
 
     this.authService.register({ username: this.username, password: this.password })
-      .subscribe({
-        next: () => this.router.navigate(['/login']),
-        error: () => this.error = 'Error al registrar el usuario'
-      });
+          .subscribe({
+            next: () => {
+              this.error = ''; // Limpiar cualquier error previo
+              this.router.navigate(['/login']);
+            },
+            error: (err: HttpErrorResponse) => { // Capturar el error como HttpErrorResponse
+              if (err.status === 409) { // 409 Conflict
+                this.error = err.error; // El cuerpo de la respuesta contiene el mensaje "El nombre de usuario ya existe."
+              } else {
+                this.error = 'Error al registrar el usuario. Inténtelo de nuevo.';
+              }
+            }
+          }); // subscribe
+
   }
 
 }
@@ -2692,7 +2753,7 @@ export class AdminGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.isAuthenticated() && this.authService.hasRole('ROLE_ADMIN')) {
+    if (this.authService.isAuthenticated() && this.authService.isAdmin()) {
       return true;
     }
     this.router.navigate(['/login']);
@@ -2757,7 +2818,7 @@ export class UserAdminGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.isAuthenticated() && (this.authService.hasRole('ROLE_USER') || this.authService.hasRole('ROLE_ADMIN'))) {
+    if (this.authService.isAuthenticated() && (this.authService.isUser() || this.authService.isAdmin())) {
       return true;
     }
     this.router.navigate(['/login']);
@@ -2786,7 +2847,7 @@ export class UserAdminGuard implements CanActivate {
             <a routerLink="/pedidos">Pedidos</a>
 
             <!-- Enlaces de administración/gestión -->
-            <ng-container *ngIf="authService.hasRole('ROLE_USER') || authService.hasRole('ROLE_ADMIN')">
+            <ng-container *ngIf="authService.isUser() || authService.isAdmin()">
               <a routerLink="/admin/productos">Gestión Productos</a>
               <a routerLink="/admin/pedidos">Gestión Pedidos</a>
               <a routerLink="/admin/categorias">Gestión Categorías</a>
@@ -2796,7 +2857,7 @@ export class UserAdminGuard implements CanActivate {
             </ng-container>
 
             <!-- Enlace exclusivo para Admin -->
-            <ng-container *ngIf="authService.hasRole('ROLE_ADMIN')">
+            <ng-container *ngIf="authService.isAdmin()">
               <a routerLink="/admin">Panel Admin</a> <!-- Si hay un panel general de admin -->
             </ng-container>
 
@@ -2944,19 +3005,13 @@ import { Injectable } from '@angular/core';
 import { CarritoItem } from './carrito-item';
 import { PedidoRequest } from '../pedido-request/pedido-request';
 import { environment } from '../../../environments/environment';
-import { AuthService } from '../../auth/AuthService';
-import { Router } from '@angular/router';
-import { ProductoService } from '../producto/producto.service';
 
 @Injectable({ providedIn: 'root' })
 export class CarritoService {
   private baseUrl = `${environment.apiUrl}/carrito`;
 
-  constructor(private http: HttpClient,
-        public auth: AuthService,
-        private router: Router,
-        private productoService: ProductoService,
-        private carritoService: CarritoService) {}
+  constructor(private http: HttpClient)
+        {}
 
   obtenerCarrito() {
     return this.http.get<CarritoItem[]>(this.baseUrl);
@@ -3712,7 +3767,7 @@ import { CategoryManagementComponent } from './componentes/category-management/c
 
     PedidosComponent,
 
-    AdminComponent,
+
     UserManagementComponent,
     OrderManagementComponent,
 
@@ -3754,35 +3809,4157 @@ import { ReviewManagementComponent } from './componentes/review-management/revie
 
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
-  // { path: 'register-comprador', component: RegisterCompradorComponent },
+  // { path: 'login', component: LoginComponent },
+  // { path: 'register', component: RegisterComponent },
+  // // { path: 'register-comprador', component: RegisterCompradorComponent },
 
-  // Rutas para compradores
-  { path: 'products', component: ProductsComponent},
+  // // Rutas para compradores
+  // { path: 'products', component: ProductsComponent},
+  // { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+  // { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+  // { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+
+  // // Rutas para usuarios (mantenimiento)
+  // // { path: 'admin/productos', component: AdminProductosComponent, canActivate: [AuthGuard] },
+  // { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/productos', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+  // { path: 'admin/productos/nuevo', component: ProductFormComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/productos/editar/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+
+  // // Rutas exclusivas para administradores
+  // { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
+  //  { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [AdminGuard] },
+
+  // // { path: 'admin/usuarios', component: AdminUsuariosComponent, canActivate: [AdminGuard] },
+  // // { path: 'admin/registro-usuario', component: RegistroUsuarioAdminComponent, canActivate: [AdminGuard] },
+
+  // { path: '', redirectTo: '/products', pathMatch: 'full' },
+  // { path: '**', redirectTo: '/products' }
+  { path: 'login', component: LoginComponent },
+      { path: 'register', component: RegisterComponent },
+      // Rutas públicas (accesibles por todos, incluyendo visitantes sin token)
+      { path: 'products', component: ProductsComponent}, // Ya permitida en backend SecurityConfig
+      // Rutas para COMPRADORES (requieren AuthGuard)
+      { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+      { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+      { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+      // Rutas para USER y ADMIN (requieren UserAdminGuard)
+      // AdminComponent es un panel general, si solo ADMIN debe verlo, usa AdminGuard
+      { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] }, // Solo ADMIN
+      { path: 'admin/productos', component: AdminComponent, canActivate: [UserAdminGuard] }, // AdminComponent lista productos, USER y ADMIN pueden verla
+      { path: 'admin/productos/create', component: ProductFormComponent, canActivate: [AdminGuard] }, // Solo ADMIN puede crear
+      { path: 'admin/productos/edit/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] }, // USER y ADMIN pueden editar (si el backend lo permite)
+      // Rutas exclusivas para ADMINISTRADORES (requieren AdminGuard)
+      { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [UserAdminGuard] },
+      { path: '', redirectTo: '/products', pathMatch: 'full' },
+      { path: '**', redirectTo: '/products' }
+];
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\environments\environment.ts -----
+
+export const environment = {
+  apiUrl: 'http://localhost:8080'
+};
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\index.html -----
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AppVentas</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\main.ts -----
+
+import { bootstrapApplication } from '@angular/platform-browser';
+import { appConfig } from './app/app.config';
+import { AppComponent } from './app/app.component';
+
+bootstrapApplication(AppComponent, appConfig)
+  .catch((err) => console.error(err));
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\styles.css -----
+
+/* You can add global styles to this file, and also import other style files */
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\auth\AuthService.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+
+import { AuthService } from './AuthService';
+
+describe('AuthService', () => {
+  let service: AuthService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(AuthService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\auth\AuthService.ts -----
+
+import {Injectable} from '@angular/core';
+import {HttpClient} from '@angular/common/http';
+import {Router} from '@angular/router';
+import {environment} from '../../environments/environment';
+import {JwtHelperService} from '@auth0/angular-jwt';
+import {Observable} from 'rxjs';
+
+
+@Injectable({providedIn: 'root'})
+export class AuthService {
+
+  private readonly TOKEN_KEY = 'jwt-token';
+  private readonly ROLE_KEY='jwt-role';
+  private jwtHelper: JwtHelperService = new JwtHelperService(); // Instanciar
+
+  constructor(private http: HttpClient, private router: Router) {}
+
+  register(credentials: { username: string; password: string }): Observable<any> {
+    // Asumiendo que tu backend tiene un endpoint /registro para usuarios normales
+    return this.http.post(`${environment.apiUrl}/registro-comprador`, credentials);
+  }
+
+  getLoggedInUsername(): string | null {
+        const token = this.getToken();
+        if (token && !this.jwtHelper.isTokenExpired(token)) {
+          const decodedToken = this.jwtHelper.decodeToken(token);
+          return decodedToken.sub; // 'sub' es el campo estándar para el sujeto (username)
+        }
+        return null;
+      }
+
+  hasRole(roleToCheck: string): boolean {
+            const userRole = this.getRole();
+            return userRole === roleToCheck;
+          }
+
+  login (credentials:{username:string; password:string}) {
+    return this.http.post<{token:string, role: string}>(`${environment.apiUrl}/auth/login`, credentials);
+  }
+
+  saveToken(token:string) {
+    const payload=JSON.parse(atob(token.split('.')[1]));
+    localStorage.setItem(this.TOKEN_KEY, token);
+    localStorage.setItem(this.ROLE_KEY, payload.role);
+  }
+
+  getToken(){
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  getRole(){
+    return localStorage.getItem(this.ROLE_KEY);
+  }
+
+   logout() {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.ROLE_KEY);
+    this.router.navigate(['/login']);
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  }
+
+  isAdmin(): boolean {
+    return this.getRole()==='ADMIN';
+  }
+
+  isUser(): boolean {
+    return this.getRole() === 'USER';
+  }
+
+  isComprador(): boolean {
+    return this.getRole() === 'COMPRADOR';
+  }
+
+  isVisitante(): boolean {
+    return this.getRole() === 'VISITANTE';
+  }
+
+
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\auth\JwtInterceptor.ts -----
+
+import { inject } from '@angular/core';
+import { HttpInterceptorFn } from '@angular/common/http';
+import { AuthService } from './AuthService';
+
+export const JwtInterceptor: HttpInterceptorFn = (req, next) => {
+  const auth = inject(AuthService);
+  const token = auth.getToken();
+  if (token) {
+    const cloned = req.clone({
+      headers: req.headers.set('Authorization', `Bearer ${token}`)
+    });
+    return next(cloned);
+  }
+  return next(req);
+};
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\admin\admin.component.css -----
+
+button {
+  margin-right: 5px;
+  padding: 6px 12px;
+  border: none;
+  cursor: pointer;
+}
+
+button:first-child {
+  background-color: #007bff;
+  color: white;
+}
+
+button:first-child:hover {
+  background-color: #0069d9;
+}
+
+button:last-child {
+  background-color: #dc3545;
+  color: white;
+}
+
+button:last-child:hover {
+  background-color: #c82333;
+}
+
+.mensaje {
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  padding: 8px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\admin\admin.component.html -----
+
+<h2>Administrar Productos</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<button *ngIf="authService.isAdmin()" (click)="editarProducto(0)">Nuevo Producto</button>
+<button (click)="editarProducto(0)">Nuevo Producto</button>
+
+<table *ngIf="productos.length > 0">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Precio</th>
+      <th>Stock</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let producto of productos">
+      <td>{{ producto.nombre }}</td>
+      <td>S/ {{ producto.precio }}</td>
+      <td>{{ producto.stock }}</td>
+      <td>
+       <button *ngIf="authService.isUser() || authService.isAdmin()" (click)="editarProducto(producto.id!)">Editar</button>
+            <!-- Botón "Eliminar": Solo visible para ADMIN -->
+            <button *ngIf="authService.isAdmin()" (click)="eliminarProducto(producto.id!)">Eliminar</button>
+          </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="productos.length === 0">No hay productos registrados.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\admin\admin.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { AdminComponent } from './admin.component';
+
+describe('AdminComponent', () => {
+  let component: AdminComponent;
+  let fixture: ComponentFixture<AdminComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AdminComponent]
+    });
+    fixture = TestBed.createComponent(AdminComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\admin\admin.component.ts -----
+
+import { UsuarioService } from 'src/app/model/usuario/usuario.service';
+import { Component, OnInit } from '@angular/core';
+import { Producto } from 'src/app/model/producto/producto';
+import { ProductoService } from 'src/app/model/producto/producto.service';
+import { Router } from '@angular/router';
+import { Usuario } from 'src/app/model/usuario/usuario';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AuthService } from 'src/app/auth/AuthService';
+// Asegúrate de que este modelo exista
+
+@Component({
+  selector: 'app-admin',
+  templateUrl: './admin.component.html',
+  styleUrls: ['./admin.component.css'],
+  standalone: true, // Asumiendo que es standalone
+  imports: [
+    CommonModule, // Si es necesario
+    FormsModule // Si estás usando formularios
+  ]
+})
+export class AdminComponent implements OnInit {
+  productos: Producto[] = [];
+
+  mensaje = '';
+
+  constructor(private productoService: ProductoService, private router: Router,public authService: AuthService) {}
+
+  ngOnInit(): void {
+    this.obtenerProductos();
+
+  }
+
+
+  obtenerProductos(): void {
+    this.productoService.getProductos().subscribe({
+      next: (data) => this.productos = data,
+      error: () => this.mensaje = 'Error al cargar productos'
+    });
+  }
+
+  editarProducto(id: number): void {
+        // Redirige a la ruta de creación/edición
+        if (id === 0) { // Nuevo producto
+          this.router.navigate(['/admin/productos/create']);
+        } else { // Editar producto existente
+          this.router.navigate(['/admin/productos/edit', id]);
+        }
+      }
+
+  eliminarProducto(id: number): void {
+        this.productoService.eliminarProducto(id).subscribe({
+          next: () => this.obtenerProductos(),
+          error: () => this.mensaje = 'No se pudo eliminar el producto'
+        });
+      }
+
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\brand-management\brand-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\brand-management\brand-management.component.html -----
+
+<h2>Gestión de Marcas</h2>
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div>
+  <h3>Crear Nueva Marca</h3>
+  <input type="text" [(ngModel)]="nuevaMarcaNombre" placeholder="Nombre de la marca" />
+  <button (click)="crearMarca()">Crear</button>
+</div>
+
+<table *ngIf="marcas.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let marca of marcas">
+      <td>{{ marca.id }}</td>
+      <td>{{ marca.nombre }}</td>
+      <td>
+        <button (click)="abrirModalEditarMarca(marca)">Editar</button> <!-- Cambiado -->
+        <button (click)="eliminarMarca(marca.id!)" style="background-color: #dc3545;">Eliminar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="marcas.length === 0">No hay marcas registradas.</p>
+
+<!-- Aquí iría el componente del modal de edición de marca -->
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\brand-management\brand-management.component.ts -----
+
+import { MarcaService } from 'src/app/model/Marca/marca.service';
+import { Component, OnInit } from '@angular/core';
+import { Marca } from 'src/app/model/Marca/marca';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+// Importar el servicio de modales y el componente del modal de edición
+// import { ModalService } from 'src/app/services/modal.service';
+// import { MarcaEditModalComponent } from './marca-edit-modal/marca-edit-modal.component'; // Necesitarías crear este
+
+@Component({
+  selector: 'app-brand-management',
+  templateUrl: './brand-management.component.html',
+  styleUrls: ['./brand-management.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    HttpClientModule
+  ]
+})
+export class BrandManagementComponent implements OnInit {
+  marcas: Marca[] = [];
+  nuevaMarcaNombre: string = '';
+  mensaje: string = '';
+  // editandoMarca: Marca | null = null; // Ya no se necesita para edición inline
+
+  constructor(
+    private marcaService: MarcaService,
+    // private modalService: ModalService // Inyectar ModalService
+  ) {}
+
+  ngOnInit(): void {
+    this.obtenerTodasLasMarcas();
+  }
+
+  obtenerTodasLasMarcas(): void {
+    this.marcaService.getMarcas().subscribe({
+      next: (data) => {
+        this.marcas = data;
+      },
+      error: (err) => {
+        console.error('Error al cargar las marcas:', err);
+        this.mensaje = 'Error al cargar marcas';
+      }
+    });
+  }
+
+  crearMarca(): void {
+    if (!this.nuevaMarcaNombre) {
+      this.mensaje = 'El nombre de la marca no puede estar vacío.';
+      return;
+    }
+    const nueva: Marca = { nombre: this.nuevaMarcaNombre };
+    this.marcaService.createMarca(nueva).subscribe({
+      next: () => {
+        this.mensaje = 'Marca creada con éxito.';
+        this.nuevaMarcaNombre = '';
+        this.obtenerTodasLasMarcas();
+      },
+      error: (err) => this.mensaje = 'Error al crear marca: ' + (err.error || err.message)
+    });
+  }
+
+  abrirModalEditarMarca(marca: Marca): void {
+    // Aquí se usaría el ModalService para abrir el modal de edición
+    // this.modalService.open(MarcaEditModalComponent, { marca: marca }).then(result => {
+    //   if (result) { // Si el modal devuelve true (guardado)
+    //     this.obtenerTodasLasMarcas();
+    //   }
+    // });
+    // Por ahora, para simular, puedes usar un prompt o alert
+    const nuevoNombre = prompt(`Editar nombre para ${marca.nombre}:`, marca.nombre);
+    if (nuevoNombre !== null && nuevoNombre !== marca.nombre) {
+      const marcaActualizada: Marca = { id: marca.id, nombre: nuevoNombre };
+      this.marcaService.updateMarca(marca.id!, marcaActualizada).subscribe({
+        next: () => {
+          this.mensaje = 'Marca actualizada con éxito.';
+          this.obtenerTodasLasMarcas();
+        },
+        error: (err) => this.mensaje = 'Error al actualizar marca: ' + (err.error || err.message)
+      });
+    }
+  }
+
+  eliminarMarca(id: number): void {
+    if (confirm('¿Estás seguro de que quieres eliminar esta marca?')) {
+      this.marcaService.deleteMarca(id).subscribe({
+        next: () => {
+          this.mensaje = 'Marca eliminada con éxito.';
+          this.obtenerTodasLasMarcas();
+        },
+        error: (err) => this.mensaje = 'Error al eliminar marca: ' + (err.error || err.message)
+      });
+    }
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\carrito\carrito.component.css -----
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ccc;
+  text-align: center;
+}
+
+.total {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: right;
+  margin-bottom: 1rem;
+}
+
+button {
+  padding: 10px 15px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #c82333;
+}
+
+.mensaje {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: green;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\carrito\carrito.component.html -----
+
+<h2>Mi Carrito</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="carrito.length > 0">
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th>Precio</th>
+      <th>Cantidad</th>
+      <th>Subtotal</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let item of carrito">
+      <td>{{ item.producto.nombre }}</td>
+      <td>S/ {{ item.producto.precio }}</td>
+      <td>{{ item.cantidad }}</td>
+      <td>S/ {{ (item.producto.precio ?? 0) * item.cantidad }}</td>
+      <td>
+          <input type="number" [(ngModel)]="item.cantidad" min="1" (change)="actualizarCantidad(item)" style="width: 60px;">
+        </td>
+        <td>S/ {{ (item.producto.precio || 0) * item.cantidad }}</td>
+        <td>
+          <button (click)="eliminarItem(item.id!)" style="background-color: orange;">Eliminar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="carrito.length > 0" class="total">Total: S/ {{ getTotal() }}</p>
+
+<div *ngIf="carrito.length > 0">
+  <button (click)="limpiarCarrito()" style="background-color: #dc3545; margin-right: 10px;">Vaciar Carrito</button>
+  <button (click)="realizarPedido()" style="background-color: #28a745;">Realizar Pedido</button>
+</div>
+<p *ngIf="carrito.length === 0">Tu carrito está vacío.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\carrito\carrito.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { CarritoComponent } from './carrito.component';
+
+describe('CarritoComponent', () => {
+  let component: CarritoComponent;
+  let fixture: ComponentFixture<CarritoComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [CarritoComponent]
+    });
+    fixture = TestBed.createComponent(CarritoComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\carrito\carrito.component.ts -----
+
+import { BoletaService } from './../../model/boleta/boleta.service';
+import { Component, OnInit } from '@angular/core';
+import { CarritoService } from 'src/app/model/carrito-item/carrito.service';
+import { CarritoItem } from 'src/app/model/carrito-item/carrito-item';
+import { PedidoRequest } from 'src/app/model/pedido-request/pedido-request';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+
+
+@Component({
+  selector: 'app-carrito',
+  templateUrl: './carrito.component.html',
+  styleUrls: ['./carrito.component.css'],
+standalone: true,
+      imports: [
+        CommonModule,
+        FormsModule // Necesario si usas [(ngModel)] en el input de cantidad
+      ]
+})
+export class CarritoComponent implements OnInit {
+  carrito: CarritoItem[] = [];
+  mensaje = '';
+
+  constructor(
+    private carritoService: CarritoService,
+    private boletaService: BoletaService, // Inyectar BoletaService
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.obtenerCarrito();
+  }
+
+  realizarPedido(): void {
+    if (this.carrito.length === 0) {
+      this.mensaje = 'El carrito está vacío. No se puede realizar un pedido.';
+      return;
+    }
+    const pedidos: PedidoRequest[] = this.carrito.map(item => ({
+      productoId: item.producto?.id || 0, // Asegúrate de que producto.id no sea undefined
+      cantidad: item.cantidad
+    }));
+    this.boletaService.generarBoleta(pedidos).subscribe({
+      next: (res: any) => {
+        this.mensaje = 'Pedido realizado con éxito! ' + res; // El backend devuelve un mensaje
+        this.carrito = []; // Vaciar carrito en frontend
+        // Opcional: Redirigir a la página de pedidos o mostrar un modal de confirmación
+        this.router.navigate(['/pedidos']);
+      },
+      error: (err) => {
+        console.error('Error al realizar el pedido:', err);
+        this.mensaje = 'Error al realizar el pedido: ' + (err.error || 'Verifique el stock o sus datos.');
+      }
+    });
+  }
+
+  actualizarCantidad(item: CarritoItem): void {
+        // Validar que la cantidad sea al menos 1
+        if (item.cantidad <= 0) {
+          item.cantidad = 1; // O eliminar el item si la cantidad es 0
+        }
+        this.mensaje = `Cantidad de ${item.producto?.nombre} actualizada a ${item.cantidad}`;
+        }
+
+  incrementarCantidad(item: CarritoItem): void {
+        item.cantidad++;
+        this.actualizarCantidad(item); // Llama al método principal de actualización
+      }
+      decrementarCantidad(item: CarritoItem): void {
+        if (item.cantidad > 1) {
+          item.cantidad--;
+          this.actualizarCantidad(item); // Llama al método principal de actualización
+        } else {
+          // Opcional: Preguntar si desea eliminar el producto si la cantidad llega a 0
+          // this.eliminarProductoDelCarrito(item);
+        }
+      }
+
+  obtenerCarrito(): void {
+    this.carritoService.obtenerCarrito().subscribe({
+      next: (data) => this.carrito = data,
+      error: () => this.mensaje = 'No se pudo cargar el carrito'
+    });
+  }
+
+  limpiarCarrito(): void {
+    this.carritoService.limpiarCarrito().subscribe({
+      next: () => {
+        this.carrito = [];
+        this.mensaje = 'Carrito vaciado';
+      },
+      error: () => this.mensaje = 'Error al limpiar carrito'
+    });
+  }
+
+
+  eliminarItem(itemId: number): void {
+    this.carrito = this.carrito.filter(item => item.id !== itemId);
+    this.mensaje = 'Producto eliminado del carrito.';
+  }
+
+  getTotal(): number {
+      return this.carrito.reduce((total, item) => {
+        // Cambiado de item.producto?.precio a item.producto.precio
+        const precio = item.producto.precio;
+        // Cambiado de item.cantidad ?? 0 a item.cantidad
+        const cantidad = item.cantidad;
+        return total + (precio * cantidad);
+      }, 0);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\category-management\category-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\category-management\category-management.component.html -----
+
+<h2>Gestión de Categorías</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div>
+  <h3>Crear Nueva Categoría</h3>
+  <input type="text" [(ngModel)]="nuevaCategoriaNombre" placeholder="Nombre de la categoría" />
+  <button (click)="crearCategoria()">Crear</button>
+</div>
+
+<table *ngIf="categorias.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let categoria of categorias">
+      <td>{{ categoria.id }}</td>
+      <td>
+        <span *ngIf="editandoCategoria?.id !== categoria.id">{{ categoria.nombre }}</span>
+        <input *ngIf="editandoCategoria && editandoCategoria.id === categoria.id"
+           type="text"
+           [(ngModel)]="editandoCategoria.nombre"
+           name="editandoCategoriaNombre" />     </td>
+      <td>
+        <ng-container *ngIf="editandoCategoria?.id !== categoria.id">
+          <button (click)="editarCategoria(categoria)">Editar</button>
+          <button (click)="eliminarCategoria(categoria.id!)" style="background-color: #dc3545;">Eliminar</button>
+        </ng-container>
+        <ng-container *ngIf="editandoCategoria?.id === categoria.id">
+          <button (click)="guardarEdicion()">Guardar</button>
+          <button (click)="cancelarEdicion()" style="background-color: gray;">Cancelar</button>
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="categorias.length === 0">No hay categorías registradas.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\category-management\category-management.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Categoria } from 'src/app/model/categoria/categoria';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+// Necesitarías un CategoryService similar a ProductoService o MarcaService
+// import { CategoryService } from 'src/app/model/category/category.service';
+
+@Component({
+  selector: 'app-category-management',
+  templateUrl: './category-management.component.html',
+  styleUrls: ['./category-management.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
+})
+export class CategoryManagementComponent implements OnInit {
+  categorias: Categoria[] = [];
+  nuevaCategoriaNombre: string = '';
+  mensaje: string = '';
+  editandoCategoria: Categoria | null = null;
+
+  constructor(
+    // private categoryService: CategoryService // Descomentar cuando tengas el servicio
+  ) {}
+
+  ngOnInit(): void {
+    this.loadCategorias();
+  }
+
+  loadCategorias(): void {
+    // this.categoryService.getCategorias().subscribe({
+    //   next: (data) => this.categorias = data,
+    //   error: (err) => this.mensaje = 'Error al cargar categorías: ' + (err.error || err.message)
+    // });
+    this.categorias = [{ id: 1, nombre: 'Electrónica' }, { id: 2, nombre: 'Ropa' }]; // Datos de ejemplo
+  }
+
+  crearCategoria(): void {
+    if (!this.nuevaCategoriaNombre) {
+      this.mensaje = 'El nombre de la categoría no puede estar vacío.';
+      return;
+    }
+    const nueva: Categoria = { nombre: this.nuevaCategoriaNombre };
+    // this.categoryService.crearCategoria(nueva).subscribe({
+    //   next: () => {
+    //     this.mensaje = 'Categoría creada con éxito.';
+    //     this.nuevaCategoriaNombre = '';
+    //     this.loadCategorias();
+    //   },
+    //   error: (err) => this.mensaje = 'Error al crear categoría: ' + (err.error || err.message)
+    // });
+    this.mensaje = `Categoría '${this.nuevaCategoriaNombre}' creada (simulado).`;
+    this.nuevaCategoriaNombre = '';
+    this.loadCategorias();
+  }
+
+  editarCategoria(categoria: Categoria): void {
+    this.editandoCategoria = { ...categoria }; // Copia para no modificar el original directamente
+  }
+
+  guardarEdicion(): void {
+    if (!this.editandoCategoria || !this.editandoCategoria.nombre) {
+      this.mensaje = 'El nombre de la categoría no puede estar vacío.';
+      return;
+    }
+    // this.categoryService.actualizarCategoria(this.editandoCategoria).subscribe({
+    //   next: () => {
+    //     this.mensaje = 'Categoría actualizada con éxito.';
+    //     this.editandoCategoria = null;
+    //     this.loadCategorias();
+    //   },
+    //   error: (err) => this.mensaje = 'Error al actualizar categoría: ' + (err.error || err.message)
+    // });
+    this.mensaje = `Categoría '${this.editandoCategoria.nombre}' actualizada (simulado).`;
+    this.editandoCategoria = null;
+    this.loadCategorias();
+  }
+
+  cancelarEdicion(): void {
+    this.editandoCategoria = null;
+  }
+
+  eliminarCategoria(id: number): void {
+    if (confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
+      // this.categoryService.eliminarCategoria(id).subscribe({
+      //   next: () => {
+      //     this.mensaje = 'Categoría eliminada con éxito.';
+      //     this.loadCategorias();
+      //   },
+      //   error: (err) => this.mensaje = 'Error al eliminar categoría: ' + (err.error || err.message)
+      // });
+      this.mensaje = `Categoría con ID ${id} eliminada (simulado).`;
+      this.loadCategorias();
+    }
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\login\login.component.css -----
+
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 300px;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+label {
+  font-weight: bold;
+}
+
+input {
+  padding: 8px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\login\login.component.html -----
+
+<h2>Iniciar Sesión</h2>
+
+<div *ngIf="error" class="error">{{ error }}</div>
+
+<form (ngSubmit)="login()">
+  <div>
+    <label for="username">Usuario:</label>
+    <input type="text" id="username" [(ngModel)]="username" name="username" required />
+  </div>
+
+  <div>
+    <label for="password">Contraseña:</label>
+    <input type="password" id="password" [(ngModel)]="password" name="password" required />
+  </div>
+
+  <button type="submit">Ingresar</button>
+</form>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\login\login.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { LoginComponent } from './login.component';
+
+describe('LoginComponent', () => {
+  let component: LoginComponent;
+  let fixture: ComponentFixture<LoginComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [LoginComponent]
+    });
+    fixture = TestBed.createComponent(LoginComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\login\login.component.ts -----
+
+import { Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from 'src/app/auth/AuthService';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css'],
+  standalone: true, // Asumiendo que es standalone
+  imports: [
+    FormsModule, // <-- Añadir aquí
+    CommonModule // Si es necesario
+  ]
+
+})
+export class LoginComponent {
+  username = '';
+  password = '';
+  error = '';
+
+  constructor(private authService: AuthService, private router: Router) {}
+
+  login() {
+  console.log('LoginComponent: Iniciando proceso de login para:', this.username);
+  this.authService.login({ username: this.username, password: this.password })
+    .subscribe({
+      next: (res: any) => {
+        console.log('LoginComponent: Login exitoso. Redirigiendo...');
+        this.authService.saveToken(res.token);
+
+        // Redirección según rol
+        const role = this.authService.getRole();
+        if (role === 'ROLE_ADMIN') {
+          this.router.navigate(['/admin']);
+        } else {
+          this.router.navigate(['/products']);
+        }
+      },
+      error: (err) => {
+        console.error('LoginComponent: Error en el login:', err);
+        this.error = 'Usuario o contraseña incorrectos';
+        if (err.message) {
+                this.error = err.message; // Mostrar el mensaje de error del servicio si está disponible
+              }
+
+      }
+    });
+}
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\order-management\order-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\order-management\order-management.component.html -----
+
+    <h2>Gestión de Pedidos</h2>
+
+    <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+    <div *ngFor="let pedido of pedidos" class="pedido-card">
+      <h3>Boleta #{{ pedido.numeroBoleta }} - Fecha: {{ pedido.fechaEmision | date:'short' }}</h3>
+      <p>Usuario: {{ pedido.usuario?.username || 'N/A' }}</p> <!-- Asumiendo que Boleta tiene usuario -->
+      <p>Total: S/ {{ pedido.total | number:'1.2-2' }}</p>
+
+      <button (click)="abrirModalDetallePedido(pedido)">Ver Detalle Completo</button>
+      <!-- Actualizar estado solo si es ADMIN -->
+      <select *ngIf="authService.isAdmin()" (change)="actualizarEstado(pedido.id!, $event)">
+        <option value="">Actualizar Estado</option>
+        <option value="PENDIENTE">PENDIENTE</option>
+        <option value="EN_PROCESO">EN PROCESO</option>
+        <option value="ENVIADO">ENVIADO</option>
+        <option value="ENTREGADO">ENTREGADO</option>
+        <option value="CANCELADO">CANCELADO</option>
+      </select>
+    </div>
+
+    <p *ngIf="pedidos.length === 0">No hay pedidos para gestionar.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\order-management\order-management.component.ts -----
+
+    import { Component, OnInit } from '@angular/core';
+    import { Boleta } from 'src/app/model/boleta/boleta';
+    import { BoletaService } from 'src/app/model/boleta/boleta.service';
+    import { AuthService } from 'src/app/auth/AuthService';
+    import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
+    import { FormsModule } from '@angular/forms';
+    // import { ModalService } from 'src/app/services/modal.service';
+    // import { OrderDetailModalComponent } from './order-detail-modal/order-detail-modal.component';
+
+    @Component({
+      selector: 'app-order-management',
+      templateUrl: './order-management.component.html',
+      styleUrls: ['./order-management.component.css'],
+      standalone: true,
+      imports: [CommonModule, FormsModule, DatePipe, DecimalPipe]
+    })
+    export class OrderManagementComponent implements OnInit {
+      pedidos: Boleta[] = [];
+      mensaje: string = '';
+
+      constructor(
+        private boletaService: BoletaService,
+        public authService: AuthService,
+        // private modalService: ModalService
+      ) {}
+
+      ngOnInit(): void {
+        this.loadAllOrders();
+      }
+
+      loadAllOrders(): void {
+        // Necesitas un endpoint en el backend para que ADMIN vea todas las boletas
+        // Tu BoletaRepository tiene findByUsuario, pero no un findAll para ADMIN
+        // Si no tienes un endpoint getAllBoletas en el backend, este método no funcionará como se espera para ADMIN
+        // Por ahora, usaremos obtenerHistorial() que es para el usuario logueado, lo cual no es correcto para gestión.
+        // Asumiendo que el backend tiene un endpoint para ADMIN como /boletas/all
+        // this.boletaService.getAllBoletasForAdmin().subscribe({
+        this.boletaService.obtenerHistorial().subscribe({ // TEMPORAL: Esto solo carga las del usuario logueado
+          next: (data) => this.pedidos = data,
+          error: (err) => this.mensaje = 'Error al cargar pedidos: ' + (err.error || err.message)
+        });
+      }
+
+      abrirModalDetallePedido(pedido: Boleta): void {
+        // this.modalService.open(OrderDetailModalComponent, { pedido: pedido });
+        alert('Funcionalidad de ver detalle de pedido no implementada aún. Detalles en consola.');
+        console.log('Detalle del Pedido:', pedido);
+      }
+
+      actualizarEstado(pedidoId: number, event: Event): void {
+        const selectElement = event.target as HTMLSelectElement;
+    const nuevoEstado = selectElement.value;
+        // Necesitas un endpoint en el backend para actualizar el estado de la boleta
+        // this.boletaService.updateBoletaStatus(pedidoId, nuevoEstado).subscribe({
+        //   next: () => {
+        //     this.mensaje = 'Estado del pedido actualizado.';
+        //     this.loadAllOrders();
+        //   },
+        //   error: (err) => this.mensaje = 'Error al actualizar estado: ' + (err.error || err.message)
+        // });
+        alert(`Funcionalidad de actualizar estado del pedido ${pedidoId} a ${nuevoEstado} no implementada aún.`);
+      }
+    }
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\pedidos\pedidos.component.css -----
+
+.pedido {
+  border: 1px solid #ccc;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+th, td {
+  padding: 8px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+.total {
+  font-weight: bold;
+  text-align: right;
+  margin-top: 0.5rem;
+}
+
+.mensaje {
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\pedidos\pedidos.component.html -----
+
+<h2>Historial de Pedidos</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<div *ngFor="let pedido of pedidos" class="pedido-card">
+  <h3>Boleta #{{ pedido.numeroBoleta }} - Fecha: {{ pedido.fechaEmision | date:'short' }}</h3>
+  <p>Subtotal: S/ {{ pedido.subtotal | number:'1.2-2' }}</p>
+  <p>IGV: S/ {{ pedido.igv | number:'1.2-2' }}</p>
+  <p>Total: S/ {{ pedido.total | number:'1.2-2' }}</p>
+
+  <h4>Detalles del Pedido:</h4>
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Precio Unitario</th>
+        <th>Subtotal Detalle</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let detalle of pedido.detalles">
+        <td>{{ detalle.producto?.nombre }}</td>
+        <td>{{ detalle.cantidad }}</td>
+        <td>S/ {{ detalle.precioUnitario | number:'1.2-2' }}</td>
+        <td>S/ {{ detalle.subtotalDetalle | number:'1.2-2' }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <button (click)="abrirModalDetallePedido(pedido)">Ver Detalle Completo</button>
+</div>
+
+<p *ngIf="pedidos.length === 0">No hay pedidos registrados.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\pedidos\pedidos.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { PedidosComponent } from './pedidos.component';
+
+describe('PedidosComponent', () => {
+  let component: PedidosComponent;
+  let fixture: ComponentFixture<PedidosComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [PedidosComponent]
+    });
+    fixture = TestBed.createComponent(PedidosComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\pedidos\pedidos.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Boleta } from 'src/app/model/boleta/boleta';
+import { BoletaService } from 'src/app/model/boleta/boleta.service';
+import { CommonModule, DatePipe, DecimalPipe } from '@angular/common'; // Importar DatePipe, DecimalPipe
+// import { ModalService } from 'src/app/services/modal.service';
+// import { OrderDetailModalComponent } from './order-detail-modal/order-detail-modal.component'; // Necesitarías crear este
+
+@Component({
+  selector: 'app-pedidos',
+  templateUrl: './pedidos.component.html',
+  styleUrls: ['./pedidos.component.css'],
+  standalone: true,
+  imports: [CommonModule, DatePipe, DecimalPipe] // Añadir pipes
+})
+export class PedidosComponent implements OnInit {
+  pedidos: Boleta[] = [];
+  mensaje = '';
+
+  constructor(
+    private boletaService: BoletaService,
+    // private modalService: ModalService
+  ) {}
+
+  ngOnInit(): void {
+    this.boletaService.obtenerHistorial().subscribe({
+      next: (data) => this.pedidos = data,
+      error: () => this.mensaje = 'No se pudo cargar el historial de pedidos'
+    });
+  }
+
+  abrirModalDetallePedido(pedido: Boleta): void {
+    // Aquí se usaría el ModalService para abrir el modal de detalle de pedido
+    // this.modalService.open(OrderDetailModalComponent, { pedido: pedido });
+    alert('Funcionalidad de ver detalle de pedido no implementada aún. Detalles en consola.');
+    console.log('Detalle del Pedido:', pedido);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\perfil\perfil.component.css -----
+
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+label {
+  font-weight: bold;
+}
+
+input[readonly] {
+  background-color: #eee;
+  color: #888;
+}
+
+input {
+  padding: 8px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 10px;
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #138496;
+}
+
+.mensaje {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: green;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\perfil\perfil.component.html -----
+
+<h2>Mi Perfil</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<form (ngSubmit)="actualizarPerfil()">
+  <div>
+    <label for="username">Usuario:</label>
+    <input type="text" id="username" [(ngModel)]="usuario.username" name="username" readonly />
+  </div>
+
+  <div>
+    <label for="nombre">Nombre completo:</label>
+    <input type="text" id="nombre" [(ngModel)]="usuario.nombre" name="nombreCompleto" required />
+  </div>
+
+  <div>
+    <label for="direccion">Dirección:</label>
+    <input type="text" id="direccion" [(ngModel)]="usuario.direccion" name="direccion" required />
+  </div>
+
+  <div>
+    <label for="telefono">Teléfono:</label>
+    <input type="text" id="telefono" [(ngModel)]="usuario.telefono" name="telefono" required />
+  </div>
+
+  <button type="submit">Actualizar</button>
+</form>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\perfil\perfil.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { PerfilComponent } from './perfil.component';
+
+describe('PerfilComponent', () => {
+  let component: PerfilComponent;
+  let fixture: ComponentFixture<PerfilComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [PerfilComponent]
+    });
+    fixture = TestBed.createComponent(PerfilComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\perfil\perfil.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Usuario } from 'src/app/model/usuario/usuario';
+import { UsuarioService } from 'src/app/model/usuario/usuario.service';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // Importa FormsModule para manejar formularios
+
+@Component({
+  selector: 'app-perfil',
+  templateUrl: './perfil.component.html',
+  styleUrls: ['./perfil.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
+})
+export class PerfilComponent implements OnInit {
+  usuario: Usuario = {
+    username: '',
+    nombre: '',
+    direccion: '',
+    telefono: ''
+  };
+
+  mensaje = '';
+
+  constructor(private usuarioService: UsuarioService) {}
+
+  ngOnInit(): void {
+    this.usuarioService.obtenerPerfil().subscribe({
+      next: (data) => this.usuario = data,
+      error: () => this.mensaje = 'No se pudo cargar el perfil'
+    });
+  }
+
+  actualizarPerfil(): void {
+    this.usuarioService.actualizarPerfil(this.usuario).subscribe({
+      next: () => this.mensaje = 'Perfil actualizado con éxito',
+      error: () => this.mensaje = 'Error al actualizar perfil'
+    });
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\product-form\product-form.component.css -----
+
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+label {
+  font-weight: bold;
+}
+
+input {
+  padding: 8px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.mensaje {
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\product-form\product-form.component.html -----
+
+<h2>{{ editando ? 'Editar' : 'Nuevo' }} Producto</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<form (ngSubmit)="guardar()">
+  <div>
+    <label for="nombre">Nombre:</label>
+    <input id="nombre" [(ngModel)]="producto.nombre" name="nombre" required />
+  </div>
+
+  <div>
+    <label for="descripcion">Descripción:</label>
+    <input id="descripcion" [(ngModel)]="producto.descripcion" name="descripcion" required />
+  </div>
+
+  <div>
+    
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\product-form\product-form.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+
+import { ProductFormComponent } from './product-form.component';
+
+describe('ProductFormComponent', () => {
+  let component: ProductFormComponent;
+  let fixture: ComponentFixture<ProductFormComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [ProductFormComponent]
+    });
+    fixture = TestBed.createComponent(ProductFormComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\product-form\product-form.component.ts -----
+
+import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core'; // Importar Input, Output, EventEmitter
+import { ActivatedRoute, Router } from '@angular/router';
+import { Producto } from 'src/app/model/producto/producto';
+import { ProductoService } from 'src/app/model/producto/producto.service';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AuthService } from 'src/app/auth/AuthService';
+import { MarcaService } from 'src/app/model/Marca/marca.service'; // Importar MarcaService
+import { CategoriaService } from 'src/app/model/categoria/categoria.service';// Importar CategoriaService
+import { Marca } from 'src/app/model/Marca/marca';
+import { Categoria } from 'src/app/model/categoria/categoria';
+
+@Component({
+  selector: 'app-product-form',
+  templateUrl: './product-form.component.html',
+  styleUrls: ['./product-form.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule
+  ],
+})
+export class ProductFormComponent implements OnInit {
+  @Input() productId: number | null = null; // Para recibir el ID si es edición (cuando se usa como modal)
+  @Output() productSaved = new EventEmitter<boolean>(); // Para notificar al padre que se guardó
+  @Output() cancelEdit = new EventEmitter<void>(); // Para notificar al padre que se canceló
+
+  producto: Producto = {
+    nombre: '',
+    descripcion: '',
+    precio: 0,
+    stock: 0,
+    marca: { nombre: '' }, // Inicializar para evitar errores de acceso
+    categoria: { nombre: '' } // Inicializar
+  };
+  mensaje = '';
+  editando = false;
+  marcas: Marca[] = [];
+  categorias: Categoria[] = [];
+
+  constructor(
+    private productoService: ProductoService,
+    private route: ActivatedRoute,
+    private router: Router,
+    private authService: AuthService,
+    private marcaService: MarcaService, // Inyectar
+    private categoriaService: CategoriaService // Inyectar
+  ) {}
+
+  ngOnInit(): void {
+    this.loadMarcas();
+    this.loadCategorias();
+
+    // Lógica para cargar producto si es edición (desde ruta o Input)
+    const idFromRoute = this.route.snapshot.paramMap.get('id');
+    const idToLoad = this.productId || (idFromRoute ? Number(idFromRoute) : null);
+
+    if (idToLoad) {
+      this.editando = true;
+      this.productoService.getProducto(idToLoad).subscribe({
+        next: (data) => {
+          this.producto = data;
+          // Asegurar que los IDs de marca/categoría estén en el modelo para el select
+          if (this.producto.marca) {
+            this.producto.marca.id = this.producto.marca.id;
+          }
+          if (this.producto.categoria) {
+            this.producto.categoria.id = this.producto.categoria.id;
+          }
+        },
+        error: () => this.mensaje = 'No se pudo cargar el producto'
+      });
+    }
+  }
+
+  loadMarcas(): void {
+    this.marcaService.getMarcas().subscribe({
+      next: (data) => this.marcas = data,
+      error: (err) => console.error('Error al cargar marcas:', err)
+    });
+  }
+
+  loadCategorias(): void {
+    this.categoriaService.getCategorias().subscribe({
+      next: (data) => this.categorias = data,
+      error: (err) => console.error('Error al cargar categorías:', err)
+    });
+  }
+
+  guardar(): void {
+    // Validar permisos (aunque los guards de ruta ya lo hacen, es una capa extra)
+    if (this.editando && !(this.authService.isUser() || this.authService.isAdmin())) {
+      this.mensaje = 'No tienes permiso para editar productos.';
+      return;
+    }
+    if (!this.editando && !this.authService.isAdmin()) {
+      this.mensaje = 'No tienes permiso para crear productos.';
+      return;
+    }
+
+    // Preparar el objeto producto para enviar al backend
+    const productoToSend = { ...this.producto };
+    if (productoToSend.marca && productoToSend.marca.id) {
+      productoToSend.marca = { id: productoToSend.marca.id } as Marca; // Enviar solo el ID
+    } else {
+      productoToSend.marca = undefined; // Si no se seleccionó marca
+    }
+    if (productoToSend.categoria && productoToSend.categoria.id) {
+      productoToSend.categoria = { id: productoToSend.categoria.id } as Categoria; // Enviar solo el ID
+    } else {
+      productoToSend.categoria = undefined; // Si no se seleccionó categoría
+    }
+
+
+    if (this.editando) {
+      this.productoService.actualizarProducto(productoToSend).subscribe({
+        next: () => {
+          this.mensaje = 'Producto actualizado con éxito';
+          this.productSaved.emit(true); // Emitir evento de guardado
+          if (!this.productId) { // Si no se usa como modal, redirigir
+            this.router.navigate(['/admin/productos']);
+          }
+        },
+        error: (err) => this.mensaje = 'Error al actualizar producto: ' + (err.error || err.message)
+      });
+    } else {
+      this.productoService.crearProducto(productoToSend).subscribe({
+        next: () => {
+          this.mensaje = 'Producto creado con éxito';
+          this.productSaved.emit(true); // Emitir evento de guardado
+          if (!this.productId) { // Si no se usa como modal, redirigir
+            this.router.navigate(['/admin/productos']);
+          }
+        },
+        error: (err) => this.mensaje = 'Error al crear producto: ' + (err.error || err.message)
+      });
+    }
+  }
+
+  cancelar(): void {
+    this.cancelEdit.emit(); // Emitir evento de cancelación
+    if (!this.productId) { // Si no se usa como modal, redirigir
+      this.router.navigate(['/admin/productos']);
+    }
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\products\products.component.css -----
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 8px;
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+}
+
+li:hover {
+  background-color: #f2f2f2;
+}
+
+.selected {
+  font-weight: bold;
+  color: #007bff;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\products\products.component.html -----
+
+    <h2>Catálogo de Productos</h2>
+
+    <!-- Barra de Búsqueda y Filtros -->
+    <div class="filters-section">
+      <input type="text" [(ngModel)]="keyword" placeholder="Buscar por descripción..." (keyup.enter)="buscarProductos()">
+      <button (click)="buscarProductos()">Buscar</button>
+
+      <select [(ngModel)]="selectedCategory" (change)="filtrarProductos()">
+        <option [ngValue]="null">Todas las Categorías</option>
+        <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
+      </select>
+
+      <select [(ngModel)]="selectedMarca" (change)="filtrarProductos()">
+        <option [ngValue]="null">Todas las Marcas</option>
+        <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="product-grid">
+      <div class="product-card" *ngFor="let producto of productos" (click)="seleccionarProducto(producto)">
+        <h3>{{ producto.nombre }}</h3>
+        <p>Precio: S/ {{ producto.precio }}</p>
+        <p>Stock: {{ producto.stock }}</p>
+        <p *ngIf="producto.marca">Marca: {{ producto.marca.nombre }}</p>
+        <p *ngIf="producto.categoria">Categoría: {{ producto.categoria.nombre }}</p>
+        <!-- Botón Añadir al Carrito -->
+        <button *ngIf="auth.isComprador() || auth.isVisitante()" (click)="agregarAlCarrito(producto); $event.stopPropagation();">Añadir al Carrito</button>
+        <p *ngIf="producto.stock === 0" style="color: red;">Sin stock disponible</p>
+      </div>
+    </div>
+
+    <div *ngIf="productoSeleccionado" class="product-detail-popup">
+      <h3>Detalle del Producto</h3>
+      <p><strong>Nombre:</strong> {{ productoSeleccionado?.nombre }}</p>
+      <p><strong>Descripción:</strong> {{ productoSeleccionado?.descripcion }}</p>
+      <p><strong>Precio:</strong> S/ {{ productoSeleccionado?.precio }}</p>
+      <p><strong>Stock:</strong> {{ productoSeleccionado?.stock }}</p>
+      <p *ngIf="productoSeleccionado?.marca?.nombre"><strong>Marca:</strong> {{ productoSeleccionado?.marca?.nombre }}</p>
+      <p *ngIf="productoSeleccionado?.categoria?.nombre"><strong>Categoría:</strong> {{ productoSeleccionado?.categoria?.nombre }}</p>
+      <button *ngIf="auth.isComprador() || auth.isVisitante()" (click)="agregarAlCarrito(productoSeleccionado!)">Añadir al Carrito</button>
+      <p *ngIf="productoSeleccionado?.stock === 0" style="color: red;">Sin stock disponible</p>
+      <button (click)="productoSeleccionado = null">Cerrar</button>
+    </div>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\products\products.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { ProductsComponent } from './products.component';
+
+describe('ProductsComponent', () => {
+  let component: ProductsComponent;
+  let fixture: ComponentFixture<ProductsComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [ProductsComponent]
+    });
+    fixture = TestBed.createComponent(ProductsComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\products\products.component.ts -----
+
+import { CategoriaService } from 'src/app/model/categoria/categoria.service';// Importar CategoriaService
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http'; // Considera si aún necesitas HttpClient directamente aquí
+import { environment } from '../../../environments/environment'; // Considera si aún necesitas environment directamente aquí
+import { AuthService } from '../../auth/AuthService';
+import { Router, RouterModule } from '@angular/router';
+import { ProductoService } from '../../model/producto/producto.service';
+import { Producto } from '../../model/producto/producto';
+import { CarritoService } from 'src/app/model/carrito-item/carrito.service';
+import { FormsModule } from '@angular/forms'; // Importar FormsModule
+import { MarcaService } from 'src/app/model/Marca/marca.service'; // Importar MarcaService
+import { Marca } from 'src/app/model/Marca/marca'; // Importar Marca
+import { Categoria } from 'src/app/model/categoria/categoria';// Importar Categoria
+
+@Component({
+  selector: 'app-products',
+  templateUrl: './products.component.html',
+  styleUrls: ['./products.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    FormsModule // Añadir FormsModule
+  ]
+})
+export class ProductsComponent implements OnInit {
+  productos: Producto[] = [];
+  productoSeleccionado: Producto | null = null;
+  keyword: string = '';
+  marcas: Marca[] = [];
+  categorias: Categoria[] = [];
+  selectedMarca: number | null = null;
+  selectedCategory: number | null = null;
+  constructor(
+    private http: HttpClient, // Puedes eliminar si no lo usas directamente
+    public auth: AuthService,
+    private router: Router, // Puedes eliminar si no lo usas directamente
+    private productoService: ProductoService,
+    private carritoService: CarritoService,
+    private marcaService: MarcaService, // Inyectar MarcaService
+    private categoriaService: CategoriaService // Inyectar CategoriaService
+  ) {}
+  ngOnInit() {
+    this.loadProducts();
+    this.loadMarcas();
+    this.loadCategorias();
+  }
+  loadProducts() {
+    this.productoService.getProductos().subscribe(data => {
+      this.productos = data;
+    });
+  }
+  loadMarcas() {
+    this.marcaService.getMarcas().subscribe(data => {
+      this.marcas = data;
+    });
+  }
+  loadCategorias() {
+    this.categoriaService.getCategorias().subscribe(data => {
+      this.categorias = data;
+    });
+  }
+  buscarProductos() {
+    this.productoService.searchProductos(this.keyword).subscribe(productos => {
+      this.productos = productos;
+    });
+  }
+filtrarProductos() {
+    // **IMPORTANTE:** Esta lógica filtra en el frontend. Para grandes datasets,
+    // lo ideal es que el backend tenga un endpoint para filtrar por marca y/o categoría.
+    // Si tu backend no tiene ese endpoint, esta función solo filtrará los productos
+    // que ya se hayan cargado inicialmente.
+    // Primero, recarga todos los productos para asegurar que el filtro se aplique sobre el conjunto completo
+    // o ajusta para que la búsqueda y los filtros se combinen en una sola llamada al backend.
+    this.productoService.getProductos().subscribe(allProducts => {
+      let filtered = allProducts;
+      if (this.selectedMarca) {
+        filtered = filtered.filter(p => p.marca && p.marca.id === this.selectedMarca);
+      }
+      if (this.selectedCategory) {
+        filtered = filtered.filter(p => p.categoria && p.categoria.id === this.selectedCategory);
+      }
+      // Si también hay una keyword, aplica la búsqueda sobre los resultados filtrados
+      if (this.keyword) {
+        filtered = filtered.filter(p => p.descripcion.toLowerCase().includes(this.keyword.toLowerCase()) || p.nombre.toLowerCase().includes(this.keyword.toLowerCase()));
+      }
+      this.productos = filtered;
+    });
+  }
+  agregarAlCarrito(producto: Producto) {
+    if (!producto || !producto.id || (producto.stock || 0) <= 0) {
+      alert('No se puede añadir este producto al carrito.');
+      return;
+    }
+    const cantidad = 1;
+    this.carritoService.agregarProducto({ productoId: producto.id, cantidad: cantidad }).subscribe({
+      next: () => {
+        alert('Producto añadido al carrito!');
+      },
+      error: (err) => {
+        console.error('Error al añadir al carrito:', err);
+        alert('Error al añadir el producto al carrito. Por favor, intente de nuevo.');
+      }
+    });
+  }
+  seleccionarProducto(product: Producto) {
+    this.productoSeleccionado = product;
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\register\register.component.css -----
+
+/* register.component.css */
+
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 300px;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+label {
+  font-weight: bold;
+}
+
+input {
+  padding: 8px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 10px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #218838;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\register\register.component.html -----
+
+<h2>Registro de Usuario</h2>
+
+<div *ngIf="error" class="error">{{ error }}</div>
+
+<form (ngSubmit)="register()">
+  <div>
+    <label for="username">Usuario:</label>
+    <input type="text" id="username" [(ngModel)]="username" name="username" required minlength="4" />
+  </div>
+
+  <div>
+    <label for="password">Contraseña:</label>
+    <input type="password" id="password" [(ngModel)]="password" name="password" required minlength="8"/>
+  </div>
+
+  <div>
+    <label for="confirmPassword">Confirmar Contraseña:</label>
+    <input type="password" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" required minlength="8" />
+  </div>
+
+  <button type="submit">Registrarse</button>
+</form>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\register\register.component.spec.ts -----
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { RegisterComponent } from './register.component';
+
+describe('RegisterComponent', () => {
+  let component: RegisterComponent;
+  let fixture: ComponentFixture<RegisterComponent>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [RegisterComponent]
+    });
+    fixture = TestBed.createComponent(RegisterComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\register\register.component.ts -----
+
+import { Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from 'src/app/auth/AuthService';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
+
+@Component({
+  selector: 'app-register',
+  templateUrl: './register.component.html',
+  styleUrls: ['./register.component.css'],
+  standalone: true, // Si es un componente standalone
+  imports: [
+    CommonModule, // <-- Añadir aquí
+    FormsModule   // <-- ¡Añadir aquí!
+  ],
+})
+export class RegisterComponent {
+  username = '';
+  password = '';
+  confirmPassword = '';
+  error = '';
+
+  constructor(private authService: AuthService, private router: Router) {}
+
+  register() {
+        this.error = ''; // Limpiar errores al intentar registrar
+        // Validaciones de longitud en el frontend
+        if (this.username.length < 4) {
+          this.error = 'El nombre de usuario debe tener al menos 4 caracteres.';
+          return;
+        }
+        if (this.password.length < 8) {
+          this.error = 'La contraseña debe tener al menos 8 caracteres.';
+          return;
+        }
+        if (this.password !== this.confirmPassword) {
+          this.error = 'Las contraseñas no coinciden';
+          return;
+        }
+
+    this.authService.register({ username: this.username, password: this.password })
+          .subscribe({
+            next: () => {
+              this.error = ''; // Limpiar cualquier error previo
+              this.router.navigate(['/login']);
+            },
+            error: (err: HttpErrorResponse) => { // Capturar el error como HttpErrorResponse
+              if (err.status === 409) { // 409 Conflict
+                this.error = err.error; // El cuerpo de la respuesta contiene el mensaje "El nombre de usuario ya existe."
+              } else {
+                this.error = 'Error al registrar el usuario. Inténtelo de nuevo.';
+              }
+            }
+          }); // subscribe
+
+  }
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\review-management\review-management.component.css -----
+
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\review-management\review-management.component.html -----
+
+<h2>Moderación de Reseñas</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="resenasPendientes.length > 0">
+  <thead>
+    <tr>
+      <th>ID Reseña</th>
+      <th>ID Producto</th>
+      <th>Comentario</th>
+      <th>Puntuación</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let resena of resenasPendientes">
+      <td>{{ resena.id }}</td>
+      <td>{{ resena.productoId }}</td>
+      <td>{{ resena.comentario }}</td>
+      <td>{{ resena.puntuacion }}</td>
+      <td>
+        <button (click)="aprobarResena(resena.id!)" style="background-color: #28a745;">Aprobar</button>
+        <button (click)="rechazarResena(resena.id!)" style="background-color: #dc3545;">Rechazar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="resenasPendientes.length === 0">No hay reseñas pendientes de moderación.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\review-management\review-management.component.ts -----
+
+import { Component, OnInit } from '@angular/core';
+import { Resena } from 'src/app/model/reseña/reseña';
+import { ResenaService } from 'src/app/model/reseña/reseña.service';
+@Component({
+  selector: 'app-review-management',
+  templateUrl: './review-management.component.html',
+  styleUrls: ['./review-management.component.css']
+})
+export class ReviewManagementComponent implements OnInit {
+  resenasPendientes: Resena[] = [];
+  mensaje: string = '';
+
+  constructor(
+    private resenaService: ResenaService // Inyectar ResenaService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadResenasPendientes();
+  }
+
+  loadResenasPendientes(): void {
+    // Asumiendo que hay un endpoint en ResenaService para obtener reseñas pendientes de aprobación
+    // Si no existe, necesitarías añadirlo en el backend (ej. GET /reseñas/pendientes)
+    // Por ahora, simulamos datos.
+    // this.resenaService.getResenasPendientes().subscribe({
+    //   next: (data) => this.reseñasPendientes = data,
+    //   error: (err) => this.mensaje = 'Error al cargar reseñas: ' + (err.error || err.message)
+    // });
+    this.resenasPendientes = [
+      { id: 1, productoId: 101, comentario: 'Buen producto, pero llegó tarde.', puntuacion: 4, aprobado: false },
+      { id: 2, productoId: 102, comentario: 'Excelente calidad, muy recomendado.', puntuacion: 5, aprobado: false }
+    ];
+  }
+
+  aprobarResena(id: number): void {
+    this.resenaService.aprobar(id).subscribe({
+      next: () => {
+        this.mensaje = 'Reseña aprobada con éxito.';
+        this.loadResenasPendientes(); // Recargar la lista
+      },
+      error: (err) => this.mensaje = 'Error al aprobar reseña: ' + (err.error || err.message)
+    });
+  }
+
+  rechazarResena(id: number): void {
+    if (confirm('¿Estás seguro de que quieres rechazar esta reseña?')) {
+      // Asumiendo que hay un endpoint en ResenaService para rechazar/eliminar reseñas
+      // Si no existe, necesitarías añadirlo en el backend (ej. DELETE /reseñas/{id})
+      // Por ahora, simulamos la eliminación.
+      // this.resenaService.eliminarResena(id).subscribe({
+      //   next: () => {
+      //     this.mensaje = 'Reseña rechazada/eliminada con éxito.';
+      //     this.loadResenasPendientes();
+      //   },
+      //   error: (err) => this.mensaje = 'Error al rechazar reseña: ' + (err.error || err.message)
+      // });
+      this.mensaje = `Reseña con ID ${id} rechazada (simulado).`;
+      this.resenasPendientes = this.resenasPendientes.filter(r => r.id !== id);
+    }
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\user-management\user-management.component.css -----
+
+/* src/styles.css */
+
+/* Estilos generales para formularios y tablas de gestión */
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+}
+
+form div {
+  display: flex;
+  flex-direction: column;
+}
+
+form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="number"],
+form select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  color: white;
+  background-color: #007bff; /* Color primario */
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
+  background-color: #dc3545;
+}
+button[style*="background-color: #dc3545;"]:hover {
+  background-color: #c82333;
+}
+
+button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
+  background-color: #28a745;
+}
+button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+
+button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
+  background-color: orange;
+}
+button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
+
+button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
+  background-color: gray;
+}
+button[style*="background-color: gray;"]:hover {
+  background-color: darkgray;
+}
+
+
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\user-management\user-management.component.html -----
+
+<h2>Gestión de Usuarios</h2>
+
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+
+<table *ngIf="usuarios.length > 0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Usuario</th>
+      <th>Nombre</th>
+      <th>Rol</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let user of usuarios">
+      <td>{{ user.id }}</td>
+      <td>{{ user.username }}</td>
+      <td>{{ user.nombre || 'N/A' }}</td> <!-- Usamos el operador || para mostrar 'N/A' si es null/undefined -->
+      <td>{{ user.role || 'N/A' }}</td>   <!-- Usamos el operador || para mostrar 'N/A' si es null/undefined -->
+      <td>
+        <!-- Editar solo si es ADMIN -->
+        <button (click)="abrirModalEditarUsuario(user)" *ngIf="authService.isAdmin()">
+          Editar
+        </button>
+        <!-- Eliminar solo si es ADMIN -->
+        <button (click)="eliminarUsuario(user.id!)" *ngIf="authService.isAdmin()" style="background-color: #dc3545;">
+          Eliminar
+        </button>
+        <!-- Asignar Rol solo si es ADMIN -->
+        <!-- Aquí el user.username podría ser null si la interfaz lo permite, por eso se añade el ?. -->
+        <select *ngIf="authService.isAdmin()" (change)="asignarRol(user.username!, $event)">
+          <option value="">Asignar Rol</option>
+          <option value="ADMIN">ADMIN</option>
+          <option value="USER">USER</option>
+          <option value="COMPRADOR">COMPRADOR</option>
+          <option value="VISITANTE">VISITANTE</option>
+        </select>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="usuarios.length === 0">No hay usuarios registrados.</p>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\componentes\user-management\user-management.component.ts -----
+
+    import { Component, OnInit } from '@angular/core';
+    import { Usuario } from 'src/app/model/usuario/usuario';
+    import { UsuarioService } from 'src/app/model/usuario/usuario.service';
+    import { AuthService } from 'src/app/auth/AuthService';
+    import { CommonModule } from '@angular/common';
+    import { FormsModule } from '@angular/forms';
+    // import { ModalService } from 'src/app/services/modal.service';
+    // import { UserEditModalComponent } from './user-edit-modal/user-edit-modal.component'; // Necesitarías crear este
+
+    @Component({
+      selector: 'app-user-management',
+      templateUrl: './user-management.component.html',
+      styleUrls: ['./user-management.component.css'],
+      standalone: true,
+      imports: [CommonModule, FormsModule]
+    })
+    export class UserManagementComponent implements OnInit {
+      usuarios: Usuario[] = [];
+      mensaje: string = '';
+
+      constructor(
+        private usuarioService: UsuarioService,
+        public authService: AuthService,
+        // private modalService: ModalService
+      ) {}
+
+      ngOnInit(): void {
+        this.loadUsers();
+      }
+
+      loadUsers(): void {
+        this.usuarioService.listarUsuarios().subscribe({
+          next: (data) => this.usuarios = data,
+          error: (err) => this.mensaje = 'Error al cargar usuarios: ' + (err.error || err.message)
+        });
+      }
+
+      abrirModalEditarUsuario(user: Usuario): void {
+        // this.modalService.open(UserEditModalComponent, { user: user }).then(result => {
+        //   if (result) {
+        //     this.loadUsers();
+        //   }
+        // });
+        alert('Funcionalidad de edición de usuario no implementada aún. Detalles en consola.');
+        console.log('Editar usuario:', user);
+      }
+
+      eliminarUsuario(id: number): void {
+        if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+          this.usuarioService.eliminarUsuario(id).subscribe({
+            next: () => {
+              this.mensaje = 'Usuario eliminado con éxito.';
+              this.loadUsers();
+            },
+            error: (err) => this.mensaje = 'Error al eliminar usuario: ' + (err.error || err.message)
+          });
+        }
+      }
+
+      asignarRol(username: string,  event: Event): void {
+        const selectElement = event.target as HTMLSelectElement;
+        const nuevoRol = selectElement.value;
+        // Necesitas un endpoint en el backend para asignar rol
+        // this.usuarioService.asignarRol(username, role).subscribe({
+        //   next: () => {
+        //     this.mensaje = `Rol de ${username} actualizado a ${role}.`;
+        //     this.loadUsers();
+        //   },
+        //   error: (err) => this.mensaje = 'Error al asignar rol: ' + (err.error || err.message)
+        // });
+        alert(`Funcionalidad de asignar rol a ${username} como ${nuevoRol} no implementada aún.`);
+      }
+    }
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\admin-guard.guard.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+import { CanActivateFn } from '@angular/router';
+
+import { AdminGuard } from './admin-guard.guard';
+
+describe('adminGuardGuard', () => {
+  const executeGuard: CanActivateFn = (route, state) =>
+      TestBed.runInInjectionContext(() => {
+        const guard = TestBed.inject(AdminGuard);
+        return guard.canActivate(route, state);
+      });
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+  });
+
+  it('should be created', () => {
+    expect(executeGuard).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\admin-guard.guard.ts -----
+
+import { Injectable } from '@angular/core';
+import { CanActivate, Router } from '@angular/router';
+import { AuthService } from '../auth/AuthService';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AdminGuard implements CanActivate {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  canActivate(): boolean {
+    if (this.authService.isAuthenticated() && this.authService.isAdmin()) {
+      return true;
+    }
+    this.router.navigate(['/login']);
+    return false;
+  }
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\auth-guard.guard.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+import { CanActivateFn } from '@angular/router';
+
+import { authGuardGuard } from './auth-guard.guard';
+
+describe('authGuardGuard', () => {
+  const executeGuard: CanActivateFn = (...guardParameters) => 
+      TestBed.runInInjectionContext(() => authGuardGuard(...guardParameters));
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+  });
+
+  it('should be created', () => {
+    expect(executeGuard).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\auth-guard.guard.ts -----
+
+import { Injectable } from '@angular/core';
+import { CanActivate, Router } from '@angular/router';
+import { AuthService } from '../auth/AuthService';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  canActivate(): boolean {
+    if (this.authService.isAuthenticated()) {
+      return true;
+    }
+    this.router.navigate(['/login']);
+    return false;
+  }
+}
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\guards\user.admin-guard.ts -----
+
+import { Injectable } from '@angular/core';
+import { CanActivate, Router } from '@angular/router';
+import { AuthService } from '../auth/AuthService';
+
+@Injectable({ providedIn: 'root' })
+export class UserAdminGuard implements CanActivate {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  canActivate(): boolean {
+    if (this.authService.isAuthenticated() && (this.authService.isUser() || this.authService.isAdmin())) {
+      return true;
+    }
+    this.router.navigate(['/login']);
+    return false;
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\layout\navbar\navbar.component.html -----
+
+<!-- navbar.component.html -->
+        <!-- navbar.component.html -->
+        <nav>
+          <a routerLink="/products">Productos</a>
+
+          <ng-container *ngIf="!authService.isAuthenticated()">
+            <a routerLink="/login">Iniciar sesión</a>
+            <a routerLink="/register">Registrarse</a> <!-- Cambiado a /register según app.routes.ts -->
+          </ng-container>
+
+          <!-- Carrito siempre visible si se permite a visitantes -->
+          <a routerLink="/carrito">Carrito</a>
+
+          <ng-container *ngIf="authService.isAuthenticated()">
+            <a routerLink="/perfil">Perfil</a>
+            <a routerLink="/pedidos">Pedidos</a>
+
+            <!-- Enlaces de administración/gestión -->
+            <ng-container *ngIf="authService.isUser() || authService.isAdmin()">
+              <a routerLink="/admin/productos">Gestión Productos</a>
+              <a routerLink="/admin/pedidos">Gestión Pedidos</a>
+              <a routerLink="/admin/categorias">Gestión Categorías</a>
+              <a routerLink="/admin/marcas">Gestión Marcas</a>
+              <a routerLink="/admin/resenas">Moderación Reseñas</a>
+              <a routerLink="/admin/usuarios">Gestión Usuarios</a>
+            </ng-container>
+
+            <!-- Enlace exclusivo para Admin -->
+            <ng-container *ngIf="authService.isAdmin()">
+              <a routerLink="/admin">Panel Admin</a> <!-- Si hay un panel general de admin -->
+            </ng-container>
+
+            <button (click)="logout()">Salir</button>
+          </ng-container>
+        </nav>
+
+<footer>
+  <p>© {{ currentYear }} Ventas Online</p>
+</footer>
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\layout\navbar\navbar.componet.ts -----
+
+import { Component } from '@angular/core';
+import { AuthService } from 'src/app/auth/AuthService';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+
+@Component({
+  selector: 'app-navbar',
+  templateUrl: './navbar.component.html',
+      standalone: true, // <--- ¡Añadir esto!
+      imports: [
+        CommonModule,
+        RouterModule // <--- ¡Añadir esto!
+      ]
+})
+export class NavbarComponent {
+  constructor(public authService: AuthService) {}
+
+  currentYear = new Date().getFullYear();
+  logout() {
+    this.authService.logout();
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\boleta.service.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+
+import { BoletaService } from './boleta.service';
+
+describe('BoletaService', () => {
+  let service: BoletaService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(BoletaService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\boleta.service.ts -----
+
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Boleta } from './boleta';
+import { PedidoRequest } from '../pedido-request/pedido-request';
+import { environment } from '../../../environments/environment';
+
+@Injectable({ providedIn: 'root' })
+export class BoletaService {
+  private baseUrl = `${environment.apiUrl}/boletas`;
+
+  constructor(private http: HttpClient) {}
+
+  generarBoleta(pedidos: PedidoRequest[]) {
+    return this.http.post(`${this.baseUrl}/generar`, pedidos);
+  }
+
+  // Si implementas historial:
+  obtenerHistorial() {
+    return this.http.get<Boleta[]>(`${this.baseUrl}/historial`);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\boleta.ts -----
+
+    // app-ventas\src\app\model\boleta\boleta.ts
+    import { Usuario } from "../usuario/usuario";
+import { DetalleBoleta } from "./detalle-boleta";
+
+    export interface Boleta {
+      id?: number;
+      usuario?: Usuario; // Si necesitas el usuario asociado a la boleta
+      numeroBoleta?: string; // Añadido
+      fechaEmision?: string; // Cambiado de 'fecha' a 'fechaEmision'
+      subtotal?: number; // Añadido
+      igv?: number; // Añadido
+      total?: number;
+      detalles: DetalleBoleta[];
+      // usuario?: any; // Si necesitas el usuario asociado a la boleta
+    }
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\boleta\detalle-boleta.ts -----
+
+
+import { Producto } from 'src/app/model/producto/producto';
+
+export interface DetalleBoleta {
+  id?: number;
+  producto?: Producto;
+  cantidad?: number;
+  precioUnitario?: number;
+  subtotalDetalle?: number; // Cambiado de 'subtotal' a 'subtotalDetalle'
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\carrito-item\carrito-item.ts -----
+
+import { Producto } from "../producto/producto";
+
+export interface CarritoItem {
+  id?: number;
+  producto: Producto;
+  cantidad: number;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\carrito-item\carrito.service.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+
+import { CarritoService } from './carrito.service';
+
+describe('CarritoService', () => {
+  let service: CarritoService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(CarritoService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\carrito-item\carrito.service.ts -----
+
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { CarritoItem } from './carrito-item';
+import { PedidoRequest } from '../pedido-request/pedido-request';
+import { environment } from '../../../environments/environment';
+
+@Injectable({ providedIn: 'root' })
+export class CarritoService {
+  private baseUrl = `${environment.apiUrl}/carrito`;
+
+  constructor(private http: HttpClient)
+        {}
+
+  obtenerCarrito() {
+    return this.http.get<CarritoItem[]>(this.baseUrl);
+  }
+
+  limpiarCarrito() {
+    return this.http.delete(`${this.baseUrl}/limpiar`);
+  }
+
+  agregarProducto(pedido: PedidoRequest) {
+    return this.http.post(`${this.baseUrl}/agregar`, pedido);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\categoria\categoria.service.ts -----
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Categoria } from './categoria'; // Asegúrate de que la ruta sea correcta
+import { environment } from '../../../environments/environment'; // Asegúrate de la ruta correcta
+
+@Injectable({
+  providedIn: 'root' // Esto hace que el servicio esté disponible en toda la aplicación
+})
+export class CategoriaService {
+  private apiUrl = `${environment.apiUrl}/categorias`; // Ajusta la URL de tu API para categorías
+
+  constructor(private http: HttpClient) { }
+
+  /**
+   * Obtiene todas las categorías del backend.
+   * @returns Un Observable con un array de Categoria.
+   */
+  getCategorias(): Observable<Categoria[]> {
+    return this.http.get<Categoria[]>(this.apiUrl);
+  }
+
+  /**
+   * Obtiene una categoría por su ID.
+   * @param id El ID de la categoría.
+   * @returns Un Observable con la Categoria.
+   */
+  getCategoria(id: number): Observable<Categoria> {
+    return this.http.get<Categoria>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Crea una nueva categoría en el backend.
+   * @param categoria La categoría a crear.
+   * @returns Un Observable con la Categoria creada.
+   */
+  createCategoria(categoria: Categoria): Observable<Categoria> {
+    return this.http.post<Categoria>(this.apiUrl, categoria);
+  }
+
+  /**
+   * Actualiza una categoría existente en el backend.
+   * @param id El ID de la categoría a actualizar.
+   * @param categoria Los datos actualizados de la categoría.
+   * @returns Un Observable con la Categoria actualizada.
+   */
+  updateCategoria(id: number, categoria: Categoria): Observable<Categoria> {
+    return this.http.put<Categoria>(`${this.apiUrl}/${id}`, categoria);
+  }
+
+  /**
+   * Elimina una categoría del backend.
+   * @param id El ID de la categoría a eliminar.
+   * @returns Un Observable vacío.
+   */
+  deleteCategoria(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\categoria\categoria.ts -----
+
+export interface Categoria {
+  id?: number;
+  nombre: string;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\Marca\marca.service.ts -----
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Marca } from './marca'; // Asegúrate de que la interfaz Marca esté bien definida
+import { environment } from '../../../environments/environment'; // Asegúrate de la ruta correcta
+
+@Injectable({
+  providedIn: 'root' // Esto hace que el servicio esté disponible en toda la aplicación
+})
+export class MarcaService {
+  private apiUrl = `${environment.apiUrl}/marcas`; // Ajusta la URL de tu API
+
+  constructor(private http: HttpClient) { }
+
+  getMarcas(): Observable<Marca[]> {
+    return this.http.get<Marca[]>(this.apiUrl);
+  }
+
+  getMarca(id: number): Observable<Marca> {
+    return this.http.get<Marca>(`${this.apiUrl}/${id}`);
+  }
+
+  createMarca(marca: Marca): Observable<Marca> {
+    return this.http.post<Marca>(this.apiUrl, marca);
+  }
+
+  updateMarca(id: number, marca: Marca): Observable<Marca> {
+    return this.http.put<Marca>(`${this.apiUrl}/${id}`, marca);
+  }
+
+  deleteMarca(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\Marca\marca.ts -----
+
+export interface Marca {
+  id?: number;
+  nombre: string;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\pedido-request\pedido-request.ts -----
+
+export interface PedidoRequest {
+  productoId: number;
+  cantidad: number;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\producto\producto.service.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+
+import { ProductoService } from './producto.service';
+
+describe('ProductoService', () => {
+  let service: ProductoService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(ProductoService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\producto\producto.service.ts -----
+
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Producto } from './producto';
+import { environment } from '../../../environments/environment';
+
+@Injectable({ providedIn: 'root' })
+export class ProductoService {
+  private baseUrl = `${environment.apiUrl}/productos`;
+
+  constructor(private http: HttpClient) {}
+
+  getProductos() {
+    return this.http.get<Producto[]>(this.baseUrl);
+  }
+
+  getProducto(id: number) {
+    return this.http.get<Producto>(`${this.baseUrl}/${id}`);
+  }
+
+  crearProducto(producto: Producto) {
+    return this.http.post<Producto>(this.baseUrl, producto);
+  }
+
+  actualizarProducto(producto: Producto) {
+    return this.http.put<Producto>(`${this.baseUrl}/${producto.id}`, producto);
+  }
+
+  eliminarProducto(id: number) {
+    return this.http.delete(`${this.baseUrl}/${id}`);
+  }
+
+  searchProductos(keyword: string) {
+    return this.http.get<Producto[]>(`${this.baseUrl}/buscar?keyword=${keyword}`);
+  }
+
+  getProductosBajoStock() {
+    return this.http.get<Producto[]>(`${this.baseUrl}/bajo-stock`);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\producto\producto.ts -----
+
+import { Marca } from 'src/app/model/Marca/marca';
+import { Categoria } from '../categoria/categoria';
+
+export interface Producto {
+  id?: number;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  stock: number;
+  marca?: Marca;
+  categoria?: Categoria;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\rese�a\rese�a.service.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+
+import { ReseñaService } from './reseña.service';
+
+describe('ReseñaService', () => {
+  let service: ReseñaService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(ReseñaService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\rese�a\rese�a.service.ts -----
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Resena } from './reseña';
+import { environment } from '../../../environments/environment';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ResenaService {
+  private baseUrl = `${environment.apiUrl}/resenas`;
+  http: any;
+
+
+  getAllResenas(): Observable<Resena[]> {
+    return this.http.get( `${this.baseUrl}/listar`);// Asumiendo que GET /reseñas lista todas
+  }
+  // Método para aprobar una reseña
+  aprobar(id: number): Observable<string> {
+    // El backend tiene PUT /reseñas/moderar/{id}
+    return this.http.put(`${this.baseUrl}/moderar/${id}`, {}, { responseType: 'text' });
+  }
+  // Método para rechazar/eliminar una reseña (asumiendo un endpoint en el backend)
+  // El backend no tiene un endpoint DELETE para reseñas en el contexto,
+  // pero si se "rechaza" una reseña, a menudo se elimina.
+  eliminar(id: number): Observable<string> {
+    // Asumiendo un endpoint DELETE /reseñas/{id}
+    return this.http.delete(`${this.baseUrl}/${id}`, { responseType: 'text' });
+  }
+  // Método para crear una reseña (para el COMPRADOR)
+  crearResena(resena: Resena): Observable<string> {
+    // El backend tiene POST /reseñas/crear
+    return this.http.post(`${this.baseUrl}/crear`, resena, { responseType: 'text' });
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\rese�a\rese�a.ts -----
+
+export interface Resena {
+  id?: number;
+  productoId: number;
+  comentario: string;
+  puntuacion: number;
+  aprobado?: boolean;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\usuario\usuario.service.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+
+import { UsuarioService } from './usuario.service';
+
+describe('UsuarioService', () => {
+  let service: UsuarioService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(UsuarioService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\usuario\usuario.service.ts -----
+
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Usuario } from './usuario';
+import { environment } from '../../../environments/environment';
+
+@Injectable({ providedIn: 'root' })
+export class UsuarioService {
+  private baseUrl = `${environment.apiUrl}/usuario`;
+
+  constructor(private http: HttpClient) {}
+
+  obtenerPerfil() {
+    return this.http.get<Usuario>(`${this.baseUrl}/perfil`);
+  }
+
+  actualizarPerfil(usuario: Usuario) {
+    return this.http.put(`${this.baseUrl}/perfil`, usuario);
+  }
+
+  listarUsuarios() {
+  return this.http.get<Usuario[]>(`${this.baseUrl}/listar`);
+}
+  eliminarUsuario(id: number) {
+    return this.http.delete(`${this.baseUrl}/eliminar/${id}`);
+  }
+
+  buscarUsuarios(keyword: string) {
+    return this.http.get<Usuario[]>(`${this.baseUrl}/buscar?keyword=${keyword}`);
+  }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\model\usuario\usuario.ts -----
+
+export interface Usuario {
+  id?: number;
+  username?: string;
+  password?: string;
+  nombre?: string;
+  direccion?: string;
+  telefono?: string;
+  role?: string;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app-routing.module.ts -----
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { AuthGuard } from './guards/auth-guard.guard';
+import { AdminGuard } from './guards/admin-guard.guard';
+import { CarritoComponent } from './componentes/carrito/carrito.component';
+import { ProductsComponent } from './componentes/products/products.component';
+import { PedidosComponent } from './componentes/pedidos/pedidos.component';
+import { PerfilComponent } from './componentes/perfil/perfil.component';
+import { AdminComponent } from './componentes/admin/admin.component';
+import { LoginComponent } from './componentes/login/login.component';
+import { RegisterComponent } from './componentes/register/register.component';
+
+const routes: Routes = [
+  { path: 'productos', component: ProductsComponent },
+  { path: 'login', component: LoginComponent },
+  { path: 'registro', component: RegisterComponent },
+  { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
   { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
   { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
-  { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
-
-  // Rutas para usuarios (mantenimiento)
-  // { path: 'admin/productos', component: AdminProductosComponent, canActivate: [AuthGuard] },
   { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] },
-  { path: 'admin/productos', component: ProductFormComponent, canActivate: [UserAdminGuard] },
-  { path: 'admin/productos/nuevo', component: ProductFormComponent, canActivate: [AdminGuard] },
-  { path: 'admin/productos/editar/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+  { path: '**', redirectTo: '' }
+];
 
-  // Rutas exclusivas para administradores
-  { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
-  { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
-  { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
-   { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
-  { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [AdminGuard] },
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
 
-  // { path: 'admin/usuarios', component: AdminUsuariosComponent, canActivate: [AdminGuard] },
-  // { path: 'admin/registro-usuario', component: RegistroUsuarioAdminComponent, canActivate: [AdminGuard] },
 
-  { path: '', redirectTo: '/products', pathMatch: 'full' },
-  { path: '**', redirectTo: '/products' }
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.component.css -----
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.component.html -----
+
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * The content below * * * * * * * * * * * -->
+<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * -->
+<!-- * * * * * * * * * * and can be replaced. * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+<!-- * * * * * * * * * Delete the template below * * * * * * * * * * -->
+<!-- * * * * * * * to get started with your project! * * * * * * * * -->
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+
+<style>
+  :host {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    font-size: 14px;
+    color: #333;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 8px 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  .toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    background-color: #1976d2;
+    color: white;
+    font-weight: 600;
+  }
+
+  .toolbar img {
+    margin: 0 16px;
+  }
+
+  .toolbar #twitter-logo {
+    height: 40px;
+    margin: 0 8px;
+  }
+
+  .toolbar #youtube-logo {
+    height: 40px;
+    margin: 0 16px;
+  }
+
+  .toolbar #twitter-logo:hover,
+  .toolbar #youtube-logo:hover {
+    opacity: 0.8;
+  }
+
+  .content {
+    display: flex;
+    margin: 82px auto 32px;
+    padding: 0 16px;
+    max-width: 960px;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  svg.material-icons {
+    height: 24px;
+    width: auto;
+  }
+
+  svg.material-icons:not(:last-child) {
+    margin-right: 8px;
+  }
+
+  .card svg.material-icons path {
+    fill: #888;
+  }
+
+  .card-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .card {
+    all: unset;
+    border-radius: 4px;
+    border: 1px solid #eee;
+    background-color: #fafafa;
+    height: 40px;
+    width: 200px;
+    margin: 0 8px 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease-in-out;
+    line-height: 24px;
+  }
+
+  .card-container .card:not(:last-child) {
+    margin-right: 0;
+  }
+
+  .card.card-small {
+    height: 16px;
+    width: 168px;
+  }
+
+  .card-container .card:not(.highlight-card) {
+    cursor: pointer;
+  }
+
+  .card-container .card:not(.highlight-card):hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 17px rgba(0, 0, 0, 0.35);
+  }
+
+  .card-container .card:not(.highlight-card):hover .material-icons path {
+    fill: rgb(105, 103, 103);
+  }
+
+  .card.highlight-card {
+    background-color: #1976d2;
+    color: white;
+    font-weight: 600;
+    border: none;
+    width: auto;
+    min-width: 30%;
+    position: relative;
+  }
+
+  .card.card.highlight-card span {
+    margin-left: 60px;
+  }
+
+  svg#rocket {
+    width: 80px;
+    position: absolute;
+    left: -10px;
+    top: -24px;
+  }
+
+  svg#rocket-smoke {
+    height: calc(100vh - 95px);
+    position: absolute;
+    top: 10px;
+    right: 180px;
+    z-index: -10;
+  }
+
+  a,
+  a:visited,
+  a:hover {
+    color: #1976d2;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #125699;
+  }
+
+  .terminal {
+    position: relative;
+    width: 80%;
+    max-width: 600px;
+    border-radius: 6px;
+    padding-top: 45px;
+    margin-top: 8px;
+    overflow: hidden;
+    background-color: rgb(15, 15, 16);
+  }
+
+  .terminal::before {
+    content: "\2022 \2022 \2022";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 4px;
+    background: rgb(58, 58, 58);
+    color: #c2c3c4;
+    width: 100%;
+    font-size: 2rem;
+    line-height: 0;
+    padding: 14px 0;
+    text-indent: 4px;
+  }
+
+  .terminal pre {
+    font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+    color: white;
+    padding: 0 1rem 1rem;
+    margin: 0;
+  }
+
+  .circle-link {
+    height: 40px;
+    width: 40px;
+    border-radius: 40px;
+    margin: 8px;
+    background-color: white;
+    border: 1px solid #eeeeee;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    transition: 1s ease-out;
+  }
+
+  .circle-link:hover {
+    transform: translateY(-0.25rem);
+    box-shadow: 0px 3px 15px rgba(0, 0, 0, 0.2);
+  }
+
+  footer {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    line-height: 20px;
+  }
+
+  footer a {
+    display: flex;
+    align-items: center;
+  }
+
+  .github-star-badge {
+    color: #24292e;
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    padding: 3px 10px;
+    border: 1px solid rgba(27,31,35,.2);
+    border-radius: 3px;
+    background-image: linear-gradient(-180deg,#fafbfc,#eff3f6 90%);
+    margin-left: 4px;
+    font-weight: 600;
+  }
+
+  .github-star-badge:hover {
+    background-image: linear-gradient(-180deg,#f0f3f6,#e6ebf1 90%);
+    border-color: rgba(27,31,35,.35);
+    background-position: -.5em;
+  }
+
+  .github-star-badge .material-icons {
+    height: 16px;
+    width: 16px;
+    margin-right: 4px;
+  }
+
+  svg#clouds {
+    position: fixed;
+    bottom: -160px;
+    left: -230px;
+    z-index: -10;
+    width: 1920px;
+  }
+
+  /* Responsive Styles */
+  @media screen and (max-width: 767px) {
+    .card-container > *:not(.circle-link) ,
+    .terminal {
+      width: 100%;
+    }
+
+    .card:not(.highlight-card) {
+      height: 16px;
+      margin: 8px 0;
+    }
+
+    .card.highlight-card span {
+      margin-left: 72px;
+    }
+
+    svg#rocket-smoke {
+      right: 120px;
+      transform: rotate(-5deg);
+    }
+  }
+
+  @media screen and (max-width: 575px) {
+    svg#rocket-smoke {
+      display: none;
+      visibility: hidden;
+    }
+  }
+</style>
+
+<!-- Toolbar -->
+ <app-navbar></app-navbar>
+    <!-- Aquí es donde Angular inyectará el componente de la ruta activa -->
+    <div class="main-content">
+      <router-outlet></router-outlet>
+    </div>
+
+  <!-- Footer -->
+
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * The content above * * * * * * * * * * * -->
+<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * -->
+<!-- * * * * * * * * * * and can be replaced. * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+<!-- * * * * * * * * * * End of Placeholder * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.component.spec.ts -----
+
+import { TestBed } from '@angular/core/testing';
+import { AppComponent } from './app.component';
+
+describe('AppComponent', () => {
+  beforeEach(() => TestBed.configureTestingModule({
+    imports: [AppComponent]
+  }));
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
+  });
+
+  it(`should have the 'app-ventas' title`, () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    expect(app.title).toEqual('app-ventas');
+  });
+
+  it('should render title', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.content span')?.textContent).toContain('app-ventas app is running!');
+  });
+});
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.component.ts -----
+
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
+import { NavbarComponent } from './layout/navbar/navbar.componet';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css'],
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    NavbarComponent
+  ]
+})
+export class AppComponent {
+  title = 'app-ventas';
+  selection = { value: 'default' };
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.config.ts -----
+
+import { ApplicationConfig, provideZoneChangeDetection} from '@angular/core';
+import { routes } from './app.routes';
+import { provideRouter } from '@angular/router';
+import {JwtInterceptor} from  './auth/JwtInterceptor';
+import {provideHttpClient, withInterceptors} from '@angular/common/http';
+
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZoneChangeDetection(),
+    provideRouter(routes),
+    provideHttpClient(withInterceptors([JwtInterceptor]))
+  ]
+};
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.module.ts -----
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+import { AppRoutingModule } from './app-routing.module';
+
+import { ProductFormComponent } from './componentes/product-form/product-form.component';
+import { RegisterComponent } from './componentes/register/register.component';
+import { PedidosComponent } from './componentes/pedidos/pedidos.component';
+import { PerfilComponent } from './componentes/perfil/perfil.component';
+import { AdminComponent } from './componentes/admin/admin.component';
+
+
+import { UserManagementComponent } from './componentes/user-management/user-management.component';
+import { OrderManagementComponent } from './componentes/order-management/order-management.component';
+import { CategoryManagementComponent } from './componentes/category-management/category-management.component';
+
+
+// Agrega aquí todos tus componentes...
+
+@NgModule({
+  declarations: [
+
+
+
+    PedidosComponent,
+
+
+    UserManagementComponent,
+    OrderManagementComponent,
+
+
+  ],
+  imports: [
+    BrowserModule,
+    FormsModule,
+    CommonModule,
+    HttpClientModule, // Necesario para las llamadas HTTP
+    AppRoutingModule
+    // otros módulos como HttpClientModule, RouterModule, etc.
+  ],
+  providers: [],
+
+})
+export class AppModule { }
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\app-ventas\src\app\app.routes.ts -----
+
+import { UserAdminGuard } from './guards/user.admin-guard';
+import { Routes } from '@angular/router';
+import { LoginComponent } from './componentes/login/login.component';
+import { RegisterComponent } from './componentes/register/register.component';
+import { ProductsComponent } from './componentes/products/products.component';
+import { ProductFormComponent } from './componentes/product-form/product-form.component';
+import { AdminComponent } from './componentes/admin/admin.component';
+import { AuthGuard } from './guards/auth-guard.guard';
+import { AdminGuard } from './guards/admin-guard.guard';
+import { CarritoComponent } from './componentes/carrito/carrito.component';
+import { PedidosComponent } from './componentes/pedidos/pedidos.component';
+import { PerfilComponent } from './componentes/perfil/perfil.component';
+import { UserManagementComponent } from './componentes/user-management/user-management.component';
+import { OrderManagementComponent } from './componentes/order-management/order-management.component';
+import { CategoryManagementComponent } from './componentes/category-management/category-management.component';
+import { BrandManagementComponent } from './componentes/brand-management/brand-management.component';
+import { ReviewManagementComponent } from './componentes/review-management/review-management.component';
+
+
+export const routes: Routes = [
+  // { path: 'login', component: LoginComponent },
+  // { path: 'register', component: RegisterComponent },
+  // // { path: 'register-comprador', component: RegisterCompradorComponent },
+
+  // // Rutas para compradores
+  // { path: 'products', component: ProductsComponent},
+  // { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+  // { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+  // { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+
+  // // Rutas para usuarios (mantenimiento)
+  // // { path: 'admin/productos', component: AdminProductosComponent, canActivate: [AuthGuard] },
+  // { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/productos', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+  // { path: 'admin/productos/nuevo', component: ProductFormComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/productos/editar/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+
+  // // Rutas exclusivas para administradores
+  // { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
+  //  { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
+  // { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [AdminGuard] },
+
+  // // { path: 'admin/usuarios', component: AdminUsuariosComponent, canActivate: [AdminGuard] },
+  // // { path: 'admin/registro-usuario', component: RegistroUsuarioAdminComponent, canActivate: [AdminGuard] },
+
+  // { path: '', redirectTo: '/products', pathMatch: 'full' },
+  // { path: '**', redirectTo: '/products' }
+  { path: 'login', component: LoginComponent },
+      { path: 'register', component: RegisterComponent },
+      // Rutas públicas (accesibles por todos, incluyendo visitantes sin token)
+      { path: 'products', component: ProductsComponent}, // Ya permitida en backend SecurityConfig
+      // Rutas para COMPRADORES (requieren AuthGuard)
+      { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+      { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+      { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+      // Rutas para USER y ADMIN (requieren UserAdminGuard)
+      // AdminComponent es un panel general, si solo ADMIN debe verlo, usa AdminGuard
+      { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] }, // Solo ADMIN
+      { path: 'admin/productos', component: AdminComponent, canActivate: [UserAdminGuard] }, // AdminComponent lista productos, USER y ADMIN pueden verla
+      { path: 'admin/productos/create', component: ProductFormComponent, canActivate: [AdminGuard] }, // Solo ADMIN puede crear
+      { path: 'admin/productos/edit/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] }, // USER y ADMIN pueden editar (si el backend lo permite)
+      // Rutas exclusivas para ADMINISTRADORES (requieren AdminGuard)
+      { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
+      { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [UserAdminGuard] },
+      { path: '', redirectTo: '/products', pathMatch: 'full' },
+      { path: '**', redirectTo: '/products' }
 ];
 
 

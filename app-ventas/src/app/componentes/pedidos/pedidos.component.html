@@ -2,24 +2,32 @@
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-<div *ngFor="let pedido of pedidos" class="pedido">
-  <h4>Pedido #{{ pedido.id }} - {{ pedido.fecha }}</h4>
+<div *ngFor="let pedido of pedidos" class="pedido-card">
+  <h3>Boleta #{{ pedido.numeroBoleta }} - Fecha: {{ pedido.fechaEmision | date:'short' }}</h3>
+  <p>Subtotal: S/ {{ pedido.subtotal | number:'1.2-2' }}</p>
+  <p>IGV: S/ {{ pedido.igv | number:'1.2-2' }}</p>
+  <p>Total: S/ {{ pedido.total | number:'1.2-2' }}</p>
 
+  <h4>Detalles del Pedido:</h4>
   <table>
     <thead>
       <tr>
         <th>Producto</th>
         <th>Cantidad</th>
-        <th>Subtotal</th>
+        <th>Precio Unitario</th>
+        <th>Subtotal Detalle</th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let detalle of pedido.detalles">
-        <td>{{ detalle.producto }}</td>
+        <td>{{ detalle.producto?.nombre }}</td>
         <td>{{ detalle.cantidad }}</td>
-        <td>S/ {{ detalle.subtotal }}</td>
+        <td>S/ {{ detalle.precioUnitario | number:'1.2-2' }}</td>
+        <td>S/ {{ detalle.subtotalDetalle | number:'1.2-2' }}</td>
       </tr>
     </tbody>
   </table>
-  <p class="total">Total: S/ {{ calcularSubtotal(pedido) }}</p>
+  <button (click)="abrirModalDetallePedido(pedido)">Ver Detalle Completo</button>
 </div>
+
+<p *ngIf="pedidos.length === 0">No hay pedidos registrados.</p>

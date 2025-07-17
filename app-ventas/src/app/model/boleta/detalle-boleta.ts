@@ -1,10 +1,10 @@
-import { Producto } from 'src/app/model/producto/producto'; // Importa la interfaz Producto
+
+import { Producto } from 'src/app/model/producto/producto';
 
 export interface DetalleBoleta {
   id?: number;
-  // boleta?: Boleta; // Evitar referencia circular si no es estrictamente necesario en el frontend
-  producto?: Producto; // Usamos '?' porque puede ser lazy-loaded o no siempre presente en todas las respuestas
+  producto?: Producto;
   cantidad?: number;
-  precioUnitario?: number; // BigDecimal en Java se mapea a number en TypeScript
-  subtotal?: number; // BigDecimal en Java se mapea a number en TypeScript (cambiado de subtotalDetalle para consistencia con el uso en el frontend)
+  precioUnitario?: number;
+  subtotalDetalle?: number; // Cambiado de 'subtotal' a 'subtotalDetalle'
 }

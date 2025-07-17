@@ -1,48 +1,63 @@
-import { Component, OnInit } from '@angular/core';
-import { Boleta } from 'src/app/model/boleta/boleta';
-import { BoletaService } from 'src/app/model/boleta/boleta.service';
-import { AuthService } from 'src/app/auth/AuthService';
+    import { Component, OnInit } from '@angular/core';
+    import { Boleta } from 'src/app/model/boleta/boleta';
+    import { BoletaService } from 'src/app/model/boleta/boleta.service';
+    import { AuthService } from 'src/app/auth/AuthService';
+    import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
+    import { FormsModule } from '@angular/forms';
+    // import { ModalService } from 'src/app/services/modal.service';
+    // import { OrderDetailModalComponent } from './order-detail-modal/order-detail-modal.component';
 
-@Component({
-  selector: 'app-order-management',
-  templateUrl: './order-management.component.html',
-  styleUrls: ['./order-management.component.css']
-})
-export class OrderManagementComponent implements OnInit {
-  pedidos: Boleta[] = [];
-  mensaje: string = '';
+    @Component({
+      selector: 'app-order-management',
+      templateUrl: './order-management.component.html',
+      styleUrls: ['./order-management.component.css'],
+      standalone: true,
+      imports: [CommonModule, FormsModule, DatePipe, DecimalPipe]
+    })
+    export class OrderManagementComponent implements OnInit {
+      pedidos: Boleta[] = [];
+      mensaje: string = '';
 
-  constructor(
-    private boletaService: BoletaService,
-    public authService: AuthService
-  ) {}
+      constructor(
+        private boletaService: BoletaService,
+        public authService: AuthService,
+        // private modalService: ModalService
+      ) {}
 
-  ngOnInit(): void {
-    this.loadAllOrders();
-  }
+      ngOnInit(): void {
+        this.loadAllOrders();
+      }
 
-  loadAllOrders(): void {
-    // Asumiendo que hay un endpoint en BoletaService para obtener todas las boletas (solo para ADMIN/USER)
-    // Si no existe, necesitarías añadirlo en el backend.
-    // Por ahora, usaremos obtenerHistorial() que es para el usuario logueado, lo cual no es correcto para gestión.
-    // Necesitarías un boletaService.getAllBoletas() en el backend.
-    this.boletaService.obtenerHistorial().subscribe({ // Esto debe ser reemplazado por getAllBoletas()
-      next: (data) => this.pedidos = data,
-      error: (err) => this.mensaje = 'Error al cargar pedidos: ' + (err.error || err.message)
-    });
-  }
+      loadAllOrders(): void {
+        // Necesitas un endpoint en el backend para que ADMIN vea todas las boletas
+        // Tu BoletaRepository tiene findByUsuario, pero no un findAll para ADMIN
+        // Si no tienes un endpoint getAllBoletas en el backend, este método no funcionará como se espera para ADMIN
+        // Por ahora, usaremos obtenerHistorial() que es para el usuario logueado, lo cual no es correcto para gestión.
+        // Asumiendo que el backend tiene un endpoint para ADMIN como /boletas/all
+        // this.boletaService.getAllBoletasForAdmin().subscribe({
+        this.boletaService.obtenerHistorial().subscribe({ // TEMPORAL: Esto solo carga las del usuario logueado
+          next: (data) => this.pedidos = data,
+          error: (err) => this.mensaje = 'Error al cargar pedidos: ' + (err.error || err.message)
+        });
+      }
 
-  verDetalle(pedido: Boleta): void {
-    alert('Funcionalidad de ver detalle de pedido no implementada aún.');
-    // Podrías abrir un modal o navegar a una ruta de detalle de pedido.
-  }
+      abrirModalDetallePedido(pedido: Boleta): void {
+        // this.modalService.open(OrderDetailModalComponent, { pedido: pedido });
+        alert('Funcionalidad de ver detalle de pedido no implementada aún. Detalles en consola.');
+        console.log('Detalle del Pedido:', pedido);
+      }
 
-  actualizarEstado(pedidoId: number, nuevoEstado: string): void {
-    alert(`Funcionalidad de actualizar estado del pedido ${pedidoId} a ${nuevoEstado} no implementada aún.`);
-    // Aquí llamarías a un servicio que interactúe con el backend para actualizar el estado del pedido.
-  }
-
-  calcularSubtotal(pedido: Boleta): number {
-    return pedido.detalles.reduce((suma, d) => suma + (d.subtotal || 0), 0);
-  }
-}
+      actualizarEstado(pedidoId: number, event: Event): void {
+        const selectElement = event.target as HTMLSelectElement;
+    const nuevoEstado = selectElement.value;
+        // Necesitas un endpoint en el backend para actualizar el estado de la boleta
+        // this.boletaService.updateBoletaStatus(pedidoId, nuevoEstado).subscribe({
+        //   next: () => {
+        //     this.mensaje = 'Estado del pedido actualizado.';
+        //     this.loadAllOrders();
+        //   },
+        //   error: (err) => this.mensaje = 'Error al actualizar estado: ' + (err.error || err.message)
+        // });
+        alert(`Funcionalidad de actualizar estado del pedido ${pedidoId} a ${nuevoEstado} no implementada aún.`);
+      }
+    }

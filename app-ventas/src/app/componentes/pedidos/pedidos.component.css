@@ -29,3 +29,77 @@ th, td {
   text-align: center;
   margin-bottom: 1rem;
 }
+h2 {
+      color: #333333;
+      text-align: center;
+      margin-top: 20px;
+      margin-bottom: 30px;
+    }
+    .pedido-card {
+      background-color: #FFFFFF;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 25px;
+      margin-bottom: 25px;
+      color: #333333;
+    }
+    .pedido-card h3 {
+      color: #1E88E5; /* Azul para el número de boleta */
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 1.4rem;
+    }
+.pedido-card p {
+      margin-bottom: 8px;
+      font-size: 1.1rem;
+    }
+    .pedido-card h4 {
+      margin-top: 25px;
+      margin-bottom: 15px;
+      color: #333333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    .pedido-card table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+ .pedido-card th,
+    .pedido-card td {
+      padding: 12px;
+      border: 1px solid #eee;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    .pedido-card th {
+      background-color: #F5F5F5;
+      font-weight: bold;
+    }
+    .pedido-card tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+.pedido-card button {
+      background-color: #1E88E5; /* Azul para el botón de ver detalle */
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background-color 0.3s ease;
+    }
+    .pedido-card button:hover {
+      background-color: #0056b3;
+    }
+ .mensaje {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+      background-color: #ffe0e0;
+      border: 1px solid #ffcccc;
+      color: #E53935; /* Rojo */
+    }

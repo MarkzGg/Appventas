@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.example.VentasSql.Model.Producto;
 import com.example.VentasSql.Entidad.Uuser; 
+
+@Entity
 @Data
 
 public class Resena {

@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Categoria } from 'src/app/model/categoria';
+import { Categoria } from 'src/app/model/categoria/categoria';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 // Necesitarías un CategoryService similar a ProductoService o MarcaService
