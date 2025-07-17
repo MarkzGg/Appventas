@@ -2,7 +2,7 @@
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-<div>
+<div class="creation-form"> <!-- Añadida clase para el formulario de creación -->
   <h3>Crear Nueva Categoría</h3>
   <input type="text" [(ngModel)]="nuevaCategoriaNombre" placeholder="Nombre de la categoría" />
   <button (click)="crearCategoria()">Crear</button>
@@ -22,9 +22,9 @@
       <td>
         <span *ngIf="editandoCategoria?.id !== categoria.id">{{ categoria.nombre }}</span>
         <input *ngIf="editandoCategoria && editandoCategoria.id === categoria.id"
-           type="text"
-           [(ngModel)]="editandoCategoria.nombre"
-           name="editandoCategoriaNombre" />     </td>
+            type="text"
+            [(ngModel)]="editandoCategoria.nombre"
+            name="editandoCategoriaNombre" />     </td>
       <td>
         <ng-container *ngIf="editandoCategoria?.id !== categoria.id">
           <button (click)="editarCategoria(categoria)">Editar</button>

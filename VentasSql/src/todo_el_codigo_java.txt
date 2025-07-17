@@ -1549,3 +1549,1639 @@ class VentasSqlApplicationTests {
 	}
 
 }
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\ApiController.java -----
+
+package com.example.VentasSql.Controller;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class ApiController {
+    @GetMapping("/api/seguro")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") 
+    public String contenidoProtegido(){
+        return "Este es un contenido protegido con JWT. ¡Acceso autorizado!";
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\AuthController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Dto.AuthRequest;
+import com.example.VentasSql.Dto.AuthResponse;
+import com.example.VentasSql.Dto.RegisterRequest; // Importamos el nuevo DTO
+import com.example.VentasSql.Entidad.Uuser;
+import com.example.VentasSql.Repository.UserRepository;
+import com.example.VentasSql.Seguridad.JwtUtil;
+import com.example.VentasSql.Entidad.Role;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize; // Importar
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
+
+    @PostMapping("/registro")
+    public String registrar(@RequestBody AuthRequest auth){
+        if (userRepository.findByUsername(auth.getUsername()).isPresent()) {
+            return "El nombre de usuario ya existe.";
+        }
+        Uuser u = Uuser.builder()
+                .username(auth.getUsername())
+                .password(passwordEncoder.encode(auth.getPassword()))
+                .role(Role.USER) // Asignamos el rol USER por defecto
+                .build();
+        userRepository.save(u);
+        return "Usuario registrado correctamente con rol USER.";
+    }
+
+    
+    @PostMapping("/admin/registro-usuario")
+    @PreAuthorize("hasRole('ADMIN')") 
+    public ResponseEntity<String> registrarUsuarioConRol(@RequestBody RegisterRequest request){
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("El nombre de usuario ya existe.");
+        }
+        Uuser u = Uuser.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(request.getRole()) 
+                .build();
+        userRepository.save(u);
+        return ResponseEntity.ok("Usuario registrado correctamente con rol " + request.getRole().name() + ".");
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/asignar-rol")
+    public ResponseEntity<String> asignarRol(@RequestParam String username, @RequestParam Role nuevoRol) {
+        Uuser user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        user.setRole(nuevoRol);
+        userRepository.save(user);
+        return ResponseEntity.ok("Rol actualizado a " + nuevoRol.name());
+    }
+
+    @PostMapping("/registro-comprador")
+    public ResponseEntity<String> registrarComprador(@RequestBody AuthRequest auth) {
+        if (userRepository.findByUsername(auth.getUsername()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("El nombre de usuario ya existe.");
+        }
+
+        Uuser comprador = Uuser.builder()
+                .username(auth.getUsername())
+                .password(passwordEncoder.encode(auth.getPassword()))
+                .role(Role.COMPRADOR)
+                .build();
+
+        userRepository.save(comprador);
+        return ResponseEntity.ok("Comprador registrado correctamente.");
+    }
+
+
+    @PostMapping("/auth/login")
+    public AuthResponse login(@RequestBody AuthRequest request){
+        try {
+            System.out.println("Intentando autenticar: " + request.getUsername());
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+            System.out.println("Autenticación exitosa para: " + request.getUsername());
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error de autenticación: " + e.getMessage());
+        }
+
+        Uuser user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado después de autenticación."));
+
+        String token = jwtUtil.generateToken(request.getUsername(), user.getRole().name());
+        return new AuthResponse(token);
+    }
+
+    @GetMapping("/token-visitante")
+    public AuthResponse generarTokenVisitante() {
+        String token = jwtUtil.generateToken("anonimo", Role.VISITANTE.name());
+        return new AuthResponse(token);
+    }
+
+
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\BoletaController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Dto.PedidoRequest;
+import com.example.VentasSql.Entidad.Boleta;
+import com.example.VentasSql.Entidad.DetalleBoleta;
+import com.example.VentasSql.Entidad.Uuser;
+import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Repository.BoletaRepository;
+import com.example.VentasSql.Repository.DetalleBoletaRepository;
+import com.example.VentasSql.Repository.ProductoRepository;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import com.example.VentasSql.Repository.UserRepository;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.security.Principal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/boletas")
+@RequiredArgsConstructor
+public class BoletaController {
+
+    private final BoletaRepository boletaRepository;
+    private final ProductoRepository productoRepository;
+    private final DetalleBoletaRepository detalleBoletaRepository;
+    private final UserRepository userRepository;
+
+    private static final BigDecimal IGV_RATE = new BigDecimal("0.18"); 
+
+    @PostMapping("/generar")
+    @PreAuthorize("permitAll()") // Accesible por USER y ADMIN
+    @Transactional 
+    public ResponseEntity<?> generarBoleta(@Valid @RequestBody List<PedidoRequest> pedidos) {
+        try {
+            if (pedidos == null || pedidos.isEmpty()) {
+                return ResponseEntity.badRequest().body("La lista de pedidos no puede estar vacía.");
+            }
+
+            Map<Long, Integer> productosEnPedido = new HashMap<>();
+            for (PedidoRequest p : pedidos) {
+                productosEnPedido.merge(p.getProductoId(), p.getCantidad(), Integer::sum);
+            }
+
+            List<DetalleBoleta> detallesBoleta = new ArrayList<>();
+            BigDecimal subtotalGeneral = BigDecimal.ZERO;
+            StringBuilder mensajeStockInsuficiente = new StringBuilder();
+
+            // Primera pasada: Verificar stock y calcular subtotal por producto
+            for (Map.Entry<Long, Integer> entry : productosEnPedido.entrySet()) {
+                Long productoId = entry.getKey();
+                Integer cantidadSolicitada = entry.getValue();
+
+                Producto producto = productoRepository.findById(productoId)
+                        .orElse(null);
+
+                if (producto == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Producto con ID " + productoId + " no encontrado.");
+                }
+
+                if (producto.getStock() < cantidadSolicitada) {
+                    mensajeStockInsuficiente.append("No hay stock suficiente para el producto '")
+                            .append(producto.getNombre())
+                            .append("'. Stock disponible: ")
+                            .append(producto.getStock())
+                            .append(". Cantidad solicitada: ")
+                            .append(cantidadSolicitada)
+                            .append(".\n");
+                } else {
+                    BigDecimal precioUnitario = producto.getPrecio();
+                    BigDecimal subtotalDetalle = precioUnitario.multiply(BigDecimal.valueOf(cantidadSolicitada));
+                    subtotalGeneral = subtotalGeneral.add(subtotalDetalle);
+
+                    DetalleBoleta detalle = new DetalleBoleta();
+                    detalle.setProducto(producto);
+                    detalle.setCantidad(cantidadSolicitada);
+                    detalle.setPrecioUnitario(precioUnitario);
+                    detalle.setSubtotalDetalle(subtotalDetalle);
+                    detallesBoleta.add(detalle);
+                }
+            }
+
+            if (mensajeStockInsuficiente.length() > 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mensajeStockInsuficiente.toString());
+            }
+
+            String numeroBoleta = generarSiguienteNumeroBoleta();
+
+            BigDecimal igvCalculado = subtotalGeneral.multiply(IGV_RATE).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal totalGeneral = subtotalGeneral.add(igvCalculado).setScale(2, RoundingMode.HALF_UP);
+
+            Boleta boleta = new Boleta();
+            boleta.setNumeroBoleta(numeroBoleta);
+            boleta.setFechaEmision(LocalDateTime.now());
+            boleta.setSubtotal(subtotalGeneral.setScale(2, RoundingMode.HALF_UP));
+            boleta.setIgv(igvCalculado);
+            boleta.setTotal(totalGeneral);
+            boleta.setDetalles(detallesBoleta);
+
+            boletaRepository.save(boleta);
+
+            StringBuilder mensajeBoleta = new StringBuilder();
+            mensajeBoleta.append("--- BOLETA DE VENTA ---\n");
+            mensajeBoleta.append("Número de Boleta: ").append(boleta.getNumeroBoleta()).append("\n");
+            mensajeBoleta.append("Fecha de Emisión: ").append(boleta.getFechaEmision()).append("\n\n");
+            mensajeBoleta.append("Detalle de Productos:\n");
+
+            for (DetalleBoleta detalle : detallesBoleta) {
+                detalle.setBoleta(boleta); 
+                detalleBoletaRepository.save(detalle); 
+
+                // Actualizar stock del producto
+                Producto producto = detalle.getProducto();
+                producto.setStock(producto.getStock() - detalle.getCantidad());
+                productoRepository.save(producto);
+
+                mensajeBoleta.append("- ").append(producto.getNombre())
+                        .append(" (x").append(detalle.getCantidad()).append("): ")
+                        .append(detalle.getPrecioUnitario()).append(" c/u - Subtotal: ")
+                        .append(detalle.getSubtotalDetalle().setScale(2, RoundingMode.HALF_UP)).append("\n");
+            }
+
+            mensajeBoleta.append("\n");
+            mensajeBoleta.append("Subtotal: S/ ").append(boleta.getSubtotal()).append("\n");
+            mensajeBoleta.append("IGV (18%): S/ ").append(boleta.getIgv()).append("\n");
+            mensajeBoleta.append("Total a Pagar: S/ ").append(boleta.getTotal()).append("\n");
+            mensajeBoleta.append("-----------------------\n");
+
+            return ResponseEntity.ok(mensajeBoleta.toString());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al generar la boleta: " + e.getMessage());
+        }
+    }
+
+    private String generarSiguienteNumeroBoleta() {
+        Boleta ultimaBoleta = boletaRepository.findTopByOrderByFechaEmisionDesc();
+        int ultimoNumero = 0;
+        if (ultimaBoleta != null && ultimaBoleta.getNumeroBoleta() != null) {
+            try {
+                ultimoNumero = Integer.parseInt(ultimaBoleta.getNumeroBoleta());
+            } catch (NumberFormatException e) {
+                System.err.println("Error al parsear el número de boleta: " + ultimaBoleta.getNumeroBoleta());
+            }
+        }
+        return String.format("%04d", ultimoNumero + 1);
+    }
+
+    @GetMapping("/historial")
+    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    @Transactional
+    public ResponseEntity<?> obtenerHistorialBoletas(Principal principal) {
+        Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
+        List<Boleta> historial = boletaRepository.findByUsuario(usuario);
+        return ResponseEntity.ok(historial);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\CarritoController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Entidad.CarritoItem;
+import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Dto.PedidoRequest;
+import com.example.VentasSql.Entidad.Uuser;
+import com.example.VentasSql.Repository.CarritoRepository;
+import com.example.VentasSql.Repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
+import java.util.List;
+import com.example.VentasSql.Repository.ProductoRepository;
+
+
+@RestController
+@RequestMapping("/carrito")
+@RequiredArgsConstructor
+public class CarritoController {
+    private final CarritoRepository carritoRepository;
+    private final UserRepository userRepository;
+    private final ProductoRepository productoRepository;
+
+    @PostMapping("/agregar")
+    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    public ResponseEntity<String> agregarProducto(@RequestBody PedidoRequest request, Principal principal) {
+        Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
+        Producto producto = productoRepository.findById(request.getProductoId())
+            .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+        CarritoItem item = new CarritoItem();
+        item.setUsuario(usuario);
+        item.setProducto(producto);
+        item.setCantidad(request.getCantidad());
+        carritoRepository.save(item);
+        return ResponseEntity.ok("Producto añadido al carrito");
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    public List<CarritoItem> verCarrito(Principal principal) {
+        Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
+        return carritoRepository.findByUsuario(usuario);
+    }
+
+    @DeleteMapping("/limpiar")
+    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    public ResponseEntity<String> limpiarCarrito(Principal principal) {
+        try {
+           Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
+           carritoRepository.deleteByUsuario(usuario);
+           return ResponseEntity.ok("Carrito eliminado");
+       } catch (Exception e) {
+           return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al limpiar el carrito: " + e.getMessage());
+       }    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\CategoriaController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Entidad.Categoria;
+import com.example.VentasSql.Repository.CategoriaRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/categorias")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('USER','ADMIN')") // Ajusta los roles según sea necesario
+public class CategoriaController {
+    private final CategoriaRepository categoriaRepository;
+
+    @PostMapping
+    public Categoria crear(@RequestBody Categoria categoria) {
+        return categoriaRepository.save(categoria);
+    }
+
+    @GetMapping
+    public List<Categoria> listar() {
+        return categoriaRepository.findAll();
+    }
+
+    @PutMapping("/{id}")
+    public Categoria actualizar(@PathVariable Long id, @RequestBody Categoria data) {
+        Categoria c = categoriaRepository.findById(id).orElseThrow();
+        c.setNombre(data.getNombre());
+        return categoriaRepository.save(c);
+    }
+
+    @DeleteMapping("/{id}")
+    public void eliminar(@PathVariable Long id) {
+        categoriaRepository.deleteById(id);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\HomeController.java -----
+
+package com.example.VentasSql.Controller;
+
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class HomeController {
+    @GetMapping("/home")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") 
+    public String home(){
+        return "¡Bienvenido! Acceso autorizado con token JWT";
+    }
+}
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\MarcaController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Entidad.Marca;
+import com.example.VentasSql.Repository.MarcaRepository;    
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/marcas")
+@RequiredArgsConstructor
+
+public class MarcaController {
+    private final MarcaRepository marcaRepository;
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public Marca crear(@RequestBody Marca marca) {
+        return marcaRepository.save(marca);
+    }
+
+    @GetMapping
+    @PreAuthorize("permitAll()")
+    public List<Marca> listar() {
+        return marcaRepository.findAll();
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Marca actualizar(@PathVariable Long id, @RequestBody Marca data) {
+        Marca m = marcaRepository.findById(id).orElseThrow();
+        m.setNombre(data.getNombre());
+        return marcaRepository.save(m);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public void eliminar(@PathVariable Long id) {
+        marcaRepository.deleteById(id);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\ProductoController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Service.ProductoService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/productos")
+public class ProductoController {
+
+    @Autowired
+    private ProductoService productoService;
+
+    // --- Endpoints CRUD Básicos (ya existentes) ---
+
+    // GET /productos - Obtener todos los productos
+    @GetMapping
+    @PreAuthorize("permitAll()") // Accesible por USER y ADMIN
+    public ResponseEntity<List<Producto>> getAllProductos() {
+        List<Producto> productos = productoService.getAllProductos();
+        return new ResponseEntity<>(productos, HttpStatus.OK);
+    }
+
+    // GET /productos/{id} - Obtener un producto por ID
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('VISITANTE','COMPRADOR','USER', 'ADMIN')") // Accesible por USER y ADMIN
+    public ResponseEntity<Producto> getProductoById(@PathVariable Long id) {
+        return productoService.getProductoById(id)
+                .map(producto -> new ResponseEntity<>(producto, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    // POST /productos - Crear un nuevo producto
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede crear productos
+    public ResponseEntity<Producto> createProducto(@RequestBody Producto producto) {
+        Producto newProducto = productoService.createProducto(producto);
+        return new ResponseEntity<>(newProducto, HttpStatus.CREATED);
+    }
+
+    // PUT /productos/{id} - Actualizar un producto completo
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede actualizar productos completos
+    public ResponseEntity<Producto> updateProducto(@PathVariable Long id, @RequestBody Producto productoDetails) {
+        Producto updatedProducto = productoService.updateProducto(id, productoDetails);
+        return updatedProducto != null ?
+                new ResponseEntity<>(updatedProducto, HttpStatus.OK) :
+                new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // PUT /productos/{id}/stock - Actualizar el stock
+    @PutMapping("/{id}/stock")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") // USER y ADMIN pueden actualizar stock
+    public ResponseEntity<Producto> updateProductoStock(@PathVariable Long id, @RequestParam Integer nuevoStock) {
+        return productoService.updateProductoStock(id, nuevoStock)
+                .map(producto -> new ResponseEntity<>(producto, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    // PUT /productos/{id}/precio - Actualizar el precio
+    @PutMapping("/{id}/precio")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") // USER y ADMIN pueden actualizar precio
+    public ResponseEntity<Producto> updateProductoPrecio(@PathVariable Long id, @RequestParam Double nuevoPrecio) {
+        return productoService.updateProductoPrecio(id, nuevoPrecio)
+                .map(producto -> new ResponseEntity<>(producto, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    // DELETE /productos/{id} - Eliminar un producto
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede eliminar productos
+    public ResponseEntity<Void> deleteProducto(@PathVariable Long id) {
+        productoService.deleteProducto(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    // --- Nuevas Rutas ---
+
+    /**
+     * GET /productos/bajo-stock
+     * Descripción: Obtiene todos los productos cuyo stock es menor a 5.
+     * Permisos: Accesible para usuarios con rol 'USER' o 'ADMIN'.
+     */
+    @GetMapping("/bajo-stock")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") // USER y ADMIN pueden ver el bajo stock
+    public ResponseEntity<List<Producto>> getProductosConBajoStock() {
+        List<Producto> productos = productoService.getProductosConBajoStock();
+        return new ResponseEntity<>(productos, HttpStatus.OK);
+    }
+
+    /**
+     * GET /productos/buscar
+     * Descripción: Busca productos cuya descripción contenga la palabra clave especificada.
+     * Ejemplo: /productos/buscar?keyword=telefono
+     * Permisos: Accesible para usuarios con rol 'USER' o 'ADMIN'.
+     */
+    @GetMapping("/buscar")
+    @PreAuthorize("permitAll()") // USER y ADMIN pueden buscar productos
+    public ResponseEntity<List<Producto>> searchProductosByDescription(@RequestParam String keyword) {
+        List<Producto> productos = productoService.searchProductosByDescription(keyword);
+        return new ResponseEntity<>(productos, HttpStatus.OK);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\ResenaController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Entidad.Resena;
+import com.example.VentasSql.Entidad.Uuser;
+import com.example.VentasSql.Repository.ResenaRepository;
+import com.example.VentasSql.Repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
+import java.util.List;
+
+@RestController
+@RequestMapping("/reseñas")
+@RequiredArgsConstructor
+public class ResenaController {
+    private final ResenaRepository resenaRepository;
+    private final UserRepository userRepository;
+
+    @PostMapping("/crear")
+    @PreAuthorize("hasRole('COMPRADOR')")
+    public ResponseEntity<String> crear(@RequestBody Resena resena, Principal principal) {
+        Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
+        resena.setUsuario(usuario);
+        resena.setAprobado(false);
+        resenaRepository.save(resena);
+        return ResponseEntity.ok("Reseña enviada para aprobación");
+    }
+
+    @GetMapping("/producto/{id}")
+    @PreAuthorize("permitAll()") // Accesible por todos
+    public List<Resena> verReseñas(@PathVariable Long id) {
+        return resenaRepository.findByProductoIdAndAprobadoTrue(id);
+    }
+
+    @PutMapping("/moderar/{id}")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<String> aprobar(@PathVariable Long id) {
+        Resena resena = resenaRepository.findById(id).orElseThrow();
+        resena.setAprobado(true);
+        resenaRepository.save(resena);
+        return ResponseEntity.ok("Reseña aprobada");
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Controller\UsuarioController.java -----
+
+package com.example.VentasSql.Controller;
+
+import com.example.VentasSql.Entidad.Uuser;
+import com.example.VentasSql.Repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+
+import java.security.Principal;
+import java.util.List;
+
+@RestController
+@RequestMapping("/usuario")
+@RequiredArgsConstructor
+public class UsuarioController {
+
+    private final UserRepository userRepository;
+
+    @GetMapping("/perfil")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Uuser> getPerfil(Principal principal) {
+        return userRepository.findByUsername(principal.getName())
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/perfil")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<String> updatePerfil(@RequestBody Uuser datos, Principal principal) {
+        Uuser user = userRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        user.setNombre(datos.getNombre());
+        user.setDireccion(datos.getDireccion());
+        user.setTelefono(datos.getTelefono());
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Perfil actualizado correctamente");
+    }
+
+    @GetMapping("/listar")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Uuser> listarUsuarios() {
+        return userRepository.findAll();
+    }
+
+}
+
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Dto\AuthRequest.java -----
+
+package com.example.VentasSql.Dto;
+
+import lombok.Data;
+
+@Data
+
+public class AuthRequest {
+    private String username;
+    private String password;
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Dto\AuthResponse.java -----
+
+package com.example.VentasSql.Dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+
+public class AuthResponse {
+    private String token;
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Dto\PedidoRequest.java -----
+
+package com.example.VentasSql.Dto;
+
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+
+@Data
+public class PedidoRequest {
+
+    @NotNull(message = "El ID del producto es obligatorio")
+    private Long productoId;
+
+    @NotNull(message = "La cantidad es obligatoria")
+    @Positive(message = "La cantidad debe ser mayor a cero")
+    private Integer cantidad;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Dto\RegisterRequest.java -----
+
+package com.example.VentasSql.Dto;
+
+import lombok.Data;
+import com.example.VentasSql.Entidad.Role; 
+
+@Data
+public class RegisterRequest {
+    private String username;
+    private String password;
+    private Role role; 
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\Boleta.java -----
+
+package com.example.VentasSql.Entidad;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Boleta {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
+    private String numeroBoleta;
+
+    private LocalDateTime fechaEmision;
+
+    @OneToMany(mappedBy = "boleta", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DetalleBoleta> detalles;
+
+    private BigDecimal subtotal;
+    private BigDecimal igv; 
+    private BigDecimal total;
+
+    @ManyToOne
+    @JoinColumn(name = "usuario_id")
+    private Uuser usuario;
+    
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\CarritoItem.java -----
+
+package com.example.VentasSql.Entidad;
+
+import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Uuser; 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
+import lombok.Data;
+
+@Entity
+@Data
+public class CarritoItem {
+    @Id @GeneratedValue
+    private Long id;
+
+    @ManyToOne
+    private Uuser usuario;
+
+    @ManyToOne
+    private Producto producto;
+
+    private Integer cantidad;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\Categoria.java -----
+
+package com.example.VentasSql.Entidad;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import lombok.Data;
+
+@Entity
+@Data
+public class Categoria {
+    @Id @GeneratedValue
+    private Long id;
+    private String nombre;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\DetalleBoleta.java -----
+
+package com.example.VentasSql.Entidad;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+import com.example.VentasSql.Model.Producto;
+
+@Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class DetalleBoleta {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "boleta_id")
+    private Boleta boleta;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "producto_id")
+    private Producto producto;
+
+    private Integer cantidad;
+    private BigDecimal precioUnitario;
+    private BigDecimal subtotalDetalle;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\Marca.java -----
+
+package com.example.VentasSql.Entidad;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import lombok.Data;
+
+@Entity
+@Data
+public class Marca {
+    @Id 
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String nombre;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\Resena.java -----
+
+package com.example.VentasSql.Entidad;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Uuser; 
+
+@Entity
+@Data
+
+public class Resena {
+    @Id @GeneratedValue
+    private Long id;
+
+    @ManyToOne
+    private Uuser usuario;
+
+    @ManyToOne
+    private Producto producto;
+
+    private String comentario;
+    private Integer puntuacion; // 1-5
+    private boolean aprobado = false;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\Role.java -----
+
+package com.example.VentasSql.Entidad;
+
+public enum Role {
+    VISITANTE,
+    COMPRADOR,
+    USER,
+    ADMIN
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Entidad\Uuser.java -----
+
+package com.example.VentasSql.Entidad;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.example.VentasSql.Entidad.Role; 
+
+@Data
+@Entity
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Uuser {
+    @Id @GeneratedValue
+    private Long id;
+    private String username;
+    private String password;
+
+    private String nombre;
+    private String direccion;
+    private String telefono;
+
+
+    @Enumerated(EnumType.STRING) 
+    private Role role; 
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Model\Pedido.java -----
+
+package com.example.VentasSql.Model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Entity
+@Data 
+@NoArgsConstructor
+@AllArgsConstructor
+public class Pedido {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    private Producto producto;
+
+    private Integer cantidad;
+    private BigDecimal total;
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Model\Producto.java -----
+
+package com.example.VentasSql.Model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
+
+import com.example.VentasSql.Entidad.Categoria;
+import com.example.VentasSql.Entidad.Marca;
+
+@Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Producto {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)    
+    private Long id;
+
+    private String nombre;
+    private Integer stock;
+    private String descripcion;
+    private BigDecimal precio;
+
+    @ManyToOne
+    private Marca marca;
+
+    @ManyToOne
+    private Categoria categoria;
+
+    
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\BoletaRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Entidad.Boleta;
+import com.example.VentasSql.Entidad.Uuser;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+
+public interface BoletaRepository extends JpaRepository<Boleta, Long> {
+    Boleta findTopByOrderByFechaEmisionDesc(); 
+    List<Boleta> findByUsuario(Uuser usuario);
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\CarritoRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Entidad.CarritoItem;
+import com.example.VentasSql.Entidad.Uuser;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface CarritoRepository extends JpaRepository<CarritoItem, Long> {
+    List<CarritoItem> findByUsuario(Uuser usuario);
+    void deleteByUsuario(Uuser usuario);
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\CategoriaRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Entidad.Categoria;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CategoriaRepository extends JpaRepository<Categoria, Long> {}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\DetalleBoletaRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Entidad.DetalleBoleta;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface DetalleBoletaRepository extends JpaRepository<DetalleBoleta, Long> {
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\MarcaRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Entidad.Marca;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface MarcaRepository extends JpaRepository<Marca, Long> {}
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\PedidoRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.VentasSql.Model.Pedido;
+
+public interface PedidoRepository extends JpaRepository<Pedido, Long> {
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\ProductoRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Model.Producto;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface ProductoRepository extends JpaRepository<Producto, Long> {
+
+    // Consulta ya existente para productos con bajo stock
+    @Query("SELECT p FROM Producto p WHERE p.stock < 5")
+    List<Producto> findProductosConBajoStock();
+
+    // Nueva consulta para buscar productos cuya descripción contenga una palabra clave (ignorando mayúsculas/minúsculas)
+    // Spring Data JPA puede derivar esta consulta automáticamente por el nombre del método
+    List<Producto> findByDescripcionContainingIgnoreCase(String keyword);
+
+    // Opcional: Si prefieres JPQL explícito para la búsqueda por descripción
+    /*
+    @Query("SELECT p FROM Producto p WHERE LOWER(p.descripcion) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<Producto> buscarPorDescripcion(@Param("keyword") String keyword);
+    */
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\ResenaRepository.java -----
+
+package com.example.VentasSql.Repository;
+
+import com.example.VentasSql.Entidad.Resena;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+
+public interface ResenaRepository extends JpaRepository<Resena, Long> {
+    List<Resena> findByProductoIdAndAprobadoTrue(Long productoId);
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Repository\UserRepository.java -----
+
+package com.example.VentasSql.Repository;
+import java.util.List;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.VentasSql.Entidad.Uuser;
+
+public interface UserRepository extends JpaRepository<Uuser, Long>{
+    Optional <Uuser> findByUsername (String username);
+    List<Uuser> findAll();
+
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Seguridad\JwtFilter.java -----
+
+package com.example.VentasSql.Seguridad;
+
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.util.Collections;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+
+@Component
+@RequiredArgsConstructor
+public class JwtFilter implements Filter {
+    private final JwtUtil jwtUtil;
+    private final UserDetailsServiceImpl userDetailsService;
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain)
+            throws IOException, ServletException {
+
+        HttpServletRequest req = (HttpServletRequest) request;
+        String auth = req.getHeader("Authorization");
+
+        System.out.println("Header Authorization: " + auth);
+
+        String username = null;
+        String token = null;
+        String role = null;
+
+        if (auth != null && auth.startsWith("Bearer ")) {
+            token = auth.substring(7);
+            try {
+                username = jwtUtil.extractUsername(token);
+                role = jwtUtil.extractRole(token); // Extraemos el rol
+            } catch (Exception e) {
+                System.out.println("Error al extraer username o rol del token: " + e.getMessage());
+            }
+        }
+
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
+            if (jwtUtil.validateToken(token)) {
+                System.out.println("Token válido para usuario: " + username + " con rol: " + role);
+
+                
+                SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, Collections.singletonList(authority)); 
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+        filterChain.doFilter(request, response);
+    }
+}
+
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Seguridad\JwtUtil.java -----
+
+package com.example.VentasSql.Seguridad;
+
+import java.security.Key;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+
+
+@Component
+public class JwtUtil {
+    @Value("${jwt.secret}")
+    private String secret;
+
+    @Value("${jwt.expiration}")
+    private long expiration;
+
+    private Key secretKey;
+
+    @PostConstruct
+    public void init(){
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes());
+    }
+
+    
+    public String generateToken(String username, String role){
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role); 
+        return Jwts.builder()
+                .setClaims(claims) 
+                .setSubject(username)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(secretKey, SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    public String extractUsername(String token){
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public String extractRole(String token){
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    public Date extractExpiration(String token){
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver){
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token){
+        return Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Boolean isTokenExpired(String token){
+        return extractExpiration(token).before(new Date());
+    }
+
+    public boolean validateToken(String token){
+        try{
+            Jwts.parserBuilder()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token);
+            return !isTokenExpired(token); 
+        } catch (Exception e){
+            System.out.println("Error al validar el token: " + e.getMessage());
+            return false;
+        }
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Seguridad\SecurityConfig.java -----
+
+package com.example.VentasSql.Seguridad;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; 
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.Arrays;
+
+@Configuration
+@RequiredArgsConstructor
+@EnableMethodSecurity(prePostEnabled = true) 
+public class SecurityConfig {
+
+    private final JwtFilter jwtFilter;
+    private final UserDetailsService userDetailsService;
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider(){
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+
+    @Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    return http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf->csrf.disable())
+            .authorizeHttpRequests(auth->auth
+                    .requestMatchers(
+                            "/registro", "/auth/login", "/login",
+                            "/registro-comprador",
+                            "/productos", "/productos/**",
+                            "/marcas", "/marcas/**", // Añadir estas líneas
+                            "/categorias", "/categorias/**",
+                            "/carrito/**","/reseñas/producto/**").permitAll()                        
+                    .anyRequest().authenticated()
+            )
+            .sessionManagement(sess->sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
+}
+
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
+    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+    configuration.setExposedHeaders(Arrays.asList("Authorization"));
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Seguridad\UserDetailsServiceImpl.java -----
+
+package com.example.VentasSql.Seguridad;
+
+import com.example.VentasSql.Entidad.Uuser;
+import com.example.VentasSql.Repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class UserDetailsServiceImpl implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        Uuser user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+
+        
+        List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+
+        return new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
+                user.getPassword(),
+                authorities 
+        );
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Service\ProductoService.java -----
+
+package com.example.VentasSql.Service;
+
+import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Repository.ProductoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.example.VentasSql.Repository.MarcaRepository;
+import com.example.VentasSql.Repository.CategoriaRepository;
+
+
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import jakarta.persistence.Entity;
+
+
+@Service
+public class ProductoService {
+
+    @Autowired
+    private ProductoRepository productoRepository;
+
+    // Método para obtener todos los productos
+    public List<Producto> getAllProductos() {
+        return productoRepository.findAll();
+    }
+
+    // Método para obtener un producto por ID
+    public Optional<Producto> getProductoById(Long id) {
+        return productoRepository.findById(id);
+    }
+    @Autowired
+    private MarcaRepository marcaRepository;
+    @Autowired
+    private CategoriaRepository categoriaRepository;
+    
+
+    // Método para crear un producto
+    @Transactional
+    public Producto createProducto(Producto producto) {
+            // Asegurar que Marca y Categoria se carguen por ID si vienen solo con ID
+            if (producto.getMarca() != null && producto.getMarca().getId() != null) {
+                marcaRepository.findById(producto.getMarca().getId())
+                    .ifPresent(producto::setMarca);
+            }
+            if (producto.getCategoria() != null && producto.getCategoria().getId() != null) {
+                categoriaRepository.findById(producto.getCategoria().getId())
+                    .ifPresent(producto::setCategoria);
+            }
+            return productoRepository.save(producto);
+        }
+
+    // Método para actualizar un producto (ejemplo de @Transactional si actualiza entidades relacionadas)
+    // Para una simple actualización, @Transactional es opcional pero buena práctica
+    @Transactional
+        public Producto updateProducto(Long id, Producto productoDetails) {
+            return productoRepository.findById(id).map(producto -> {
+                producto.setNombre(productoDetails.getNombre());
+                producto.setStock(productoDetails.getStock());
+                producto.setDescripcion(productoDetails.getDescripcion());
+                producto.setPrecio(productoDetails.getPrecio());
+                // Actualizar Marca y Categoria si se proporcionan
+                if (productoDetails.getMarca() != null && productoDetails.getMarca().getId() != null) {
+                    marcaRepository.findById(productoDetails.getMarca().getId())
+                        .ifPresent(producto::setMarca);
+                } else if (productoDetails.getMarca() == null) { // Si se envía null, desasociar
+                    producto.setMarca(null);
+                }
+                if (productoDetails.getCategoria() != null && productoDetails.getCategoria().getId() != null) {
+                    categoriaRepository.findById(productoDetails.getCategoria().getId())
+                        .ifPresent(producto::setCategoria);
+                } else if (productoDetails.getCategoria() == null) { // Si se envía null, desasociar
+                    producto.setCategoria(null);
+                }
+                return productoRepository.save(producto);
+            }).orElse(null);
+        }
+
+    // Método para actualizar el stock de un producto
+    @Transactional
+    public Optional<Producto> updateProductoStock(Long id, Integer nuevoStock) {
+        return productoRepository.findById(id).map(producto -> {
+            producto.setStock(nuevoStock);
+            return productoRepository.save(producto);
+        });
+    }
+
+    // Método para actualizar el precio de un producto
+    @Transactional
+    public Optional<Producto> updateProductoPrecio(Long id, Double nuevoPrecio) {
+        return productoRepository.findById(id).map(producto -> {
+            producto.setPrecio(BigDecimal.valueOf(nuevoPrecio));
+            return productoRepository.save(producto);
+        });
+    }
+
+    // Método para eliminar un producto
+    @Transactional
+    public void deleteProducto(Long id) {
+        productoRepository.deleteById(id);
+    }
+
+    // --- Nuevos Métodos para las Consultas Personalizadas ---
+
+    // Método para obtener productos con menos de 5 de stock
+    public List<Producto> getProductosConBajoStock() {
+        return productoRepository.findProductosConBajoStock();
+    }
+
+    // Método para buscar productos por palabra clave en la descripción
+    public List<Producto> searchProductosByDescription(String keyword) {
+        return productoRepository.findByDescripcionContainingIgnoreCase(keyword);
+        // Si usaste el método @Query con @Param, sería:
+        // return productoRepository.buscarPorDescripcion(keyword);
+    }
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\VentasSqlApplication.java -----
+
+package com.example.VentasSql;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class VentasSqlApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(VentasSqlApplication.class, args);
+	}
+
+}
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\test\java\com\example\VentasSql\VentasSqlApplicationTests.java -----
+
+package com.example.VentasSql;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class VentasSqlApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}

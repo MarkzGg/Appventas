@@ -2,6 +2,35 @@
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
+<!-- Botón para crear un nuevo usuario -->
+<button (click)="crearNuevoUsuario()" *ngIf="authService.isAdmin()">Crear Nuevo Usuario</button>
+
+<!-- Formulario para crear/editar usuario -->
+<div *ngIf="editandoUsuario">
+  <h3>{{ editandoUsuario.id ? 'Editar Usuario' : 'Nuevo Usuario' }}</h3>
+  <form (ngSubmit)="guardarUsuario()">
+    <div>
+      <label for="username">Usuario:</label>
+      <input type="text" id="username" [(ngModel)]="editandoUsuario.username" name="username" required minlength="4" />
+    </div>
+    <div>
+      <label for="nombre">Nombre:</label>
+      <input type="text" id="nombre" [(ngModel)]="editandoUsuario.nombre" name="nombre" required />
+    </div>
+    <div>
+      <label for="rol">Rol:</label>
+      <select [(ngModel)]="editandoUsuario.role" name="rol" required>
+        <option value="ADMIN">ADMIN</option>
+        <option value="USER">USER</option>
+        <option value="COMPRADOR">COMPRADOR</option>
+        <option value="VISITANTE">VISITANTE</option>
+      </select>
+    </div>
+    <button type="submit">{{ editandoUsuario.id ? 'Actualizar' : 'Crear' }}</button>
+    <button type="button" (click)="cancelarEdicion()">Cancelar</button>
+  </form>
+</div>
+
 <table *ngIf="usuarios.length > 0">
   <thead>
     <tr>
@@ -16,19 +45,11 @@
     <tr *ngFor="let user of usuarios">
       <td>{{ user.id }}</td>
       <td>{{ user.username }}</td>
-      <td>{{ user.nombre || 'N/A' }}</td> <!-- Usamos el operador || para mostrar 'N/A' si es null/undefined -->
-      <td>{{ user.role || 'N/A' }}</td>   <!-- Usamos el operador || para mostrar 'N/A' si es null/undefined -->
+      <td>{{ user.nombre || 'N/A' }}</td>
+      <td>{{ user.role || 'N/A' }}</td>
       <td>
-        <!-- Editar solo si es ADMIN -->
-        <button (click)="abrirModalEditarUsuario(user)" *ngIf="authService.isAdmin()">
-          Editar
-        </button>
-        <!-- Eliminar solo si es ADMIN -->
-        <button (click)="eliminarUsuario(user.id!)" *ngIf="authService.isAdmin()" style="background-color: #dc3545;">
-          Eliminar
-        </button>
-        <!-- Asignar Rol solo si es ADMIN -->
-        <!-- Aquí el user.username podría ser null si la interfaz lo permite, por eso se añade el ?. -->
+        <button (click)="abrirModalEditarUsuario(user)" *ngIf="authService.isAdmin()">Editar</button>
+        <button (click)="eliminarUsuario(user.id!)" *ngIf="authService.isAdmin()" style="background-color: #dc3545;">Eliminar</button>
         <select *ngIf="authService.isAdmin()" (change)="asignarRol(user.username!, $event)">
           <option value="">Asignar Rol</option>
           <option value="ADMIN">ADMIN</option>

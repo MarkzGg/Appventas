@@ -1,8 +1,33 @@
+h2 {
+  text-align: center;
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 30px;
+}
 
-/* src/styles.css */
+.mensaje {
+  padding: 10px;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+}
 
-/* Estilos generales para formularios y tablas de gestión */
-form {
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: red;
+}
+
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: green;
+}
+
+/* Formulario de creación/edición */
+form, div.creation-form { /* Añadido div.creation-form para el formulario de creación de marca/categoría */
   display: flex;
   flex-direction: column;
   max-width: 500px;
@@ -12,14 +37,15 @@ form {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   gap: 15px;
+  background-color: #fff;
 }
 
-form div {
+form div, div.creation-form div {
   display: flex;
   flex-direction: column;
 }
 
-form label {
+form label, div.creation-form label {
   font-weight: bold;
   margin-bottom: 5px;
   color: #333;
@@ -28,13 +54,14 @@ form label {
 form input[type="text"],
 form input[type="password"],
 form input[type="number"],
-form select {
+form select,
+div.creation-form input[type="text"] {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1rem;
   width: 100%;
-  box-sizing: border-box; /* Para incluir padding y border en el ancho */
+  box-sizing: border-box;
 }
 
 button {
@@ -80,12 +107,14 @@ button[style*="background-color: gray;"]:hover {
   background-color: darkgray;
 }
 
-
 table {
   width: 90%;
   margin: 20px auto;
   border-collapse: collapse;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 th, td {
@@ -108,28 +137,7 @@ tr:hover {
   background-color: #f1f1f1;
 }
 
-.mensaje {
-  padding: 10px;
-  margin: 10px auto;
-  width: 80%;
-  text-align: center;
-  border-radius: 5px;
-  font-weight: bold;
-}
-
-.mensaje[style*="color: red;"] {
-  background-color: #ffe0e0;
-  border: 1px solid #ffcccc;
-  color: red;
-}
-
-.mensaje[style*="color: green;"] {
-  background-color: #e0ffe0;
-  border: 1px solid #ccffcc;
-  color: green;
-}
-
-h2, h3 {
+h3 {
   text-align: center;
   color: #333;
   margin-top: 20px;

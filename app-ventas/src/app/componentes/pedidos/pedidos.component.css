@@ -1,35 +1,4 @@
-.pedido {
-  border: 1px solid #ccc;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  border-radius: 5px;
-  background-color: #f9f9f9;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0.5rem;
-}
-
-th, td {
-  padding: 8px;
-  border: 1px solid #ddd;
-  text-align: center;
-}
-
-.total {
-  font-weight: bold;
-  text-align: right;
-  margin-top: 0.5rem;
-}
-
-.mensaje {
-  color: red;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-h2 {
+    h2 {
       color: #333333;
       text-align: center;
       margin-top: 20px;
@@ -50,7 +19,7 @@ h2 {
       margin-bottom: 15px;
       font-size: 1.4rem;
     }
-.pedido-card p {
+    .pedido-card p {
       margin-bottom: 8px;
       font-size: 1.1rem;
     }
@@ -66,7 +35,7 @@ h2 {
       border-collapse: collapse;
       margin-top: 15px;
     }
- .pedido-card th,
+    .pedido-card th,
     .pedido-card td {
       padding: 12px;
       border: 1px solid #eee;
@@ -80,7 +49,7 @@ h2 {
     .pedido-card tr:nth-child(even) {
       background-color: #f9f9f9;
     }
-.pedido-card button {
+    .pedido-card button {
       background-color: #1E88E5; /* Azul para el botón de ver detalle */
       color: white;
       border: none;
@@ -93,7 +62,7 @@ h2 {
     .pedido-card button:hover {
       background-color: #0056b3;
     }
- .mensaje {
+    .mensaje {
       text-align: center;
       margin-bottom: 20px;
       padding: 10px;
@@ -103,3 +72,4 @@ h2 {
       border: 1px solid #ffcccc;
       color: #E53935; /* Rojo */
     }
+    

@@ -46,6 +46,8 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                             "/registro", "/auth/login", "/login",
                             "/registro-comprador",
                             "/productos", "/productos/**",
+                            "/marcas", "/marcas/**", // Añadir estas líneas
+                            "/categorias", "/categorias/**",
                             "/carrito/**","/reseñas/producto/**").permitAll()                        
                     .anyRequest().authenticated()
             )

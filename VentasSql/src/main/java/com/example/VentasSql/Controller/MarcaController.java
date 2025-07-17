@@ -10,21 +10,24 @@ import java.util.List;
 @RestController
 @RequestMapping("/marcas")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('USER','ADMIN')")
+
 public class MarcaController {
     private final MarcaRepository marcaRepository;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public Marca crear(@RequestBody Marca marca) {
         return marcaRepository.save(marca);
     }
 
     @GetMapping
+    @PreAuthorize("permitAll()")
     public List<Marca> listar() {
         return marcaRepository.findAll();
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public Marca actualizar(@PathVariable Long id, @RequestBody Marca data) {
         Marca m = marcaRepository.findById(id).orElseThrow();
         m.setNombre(data.getNombre());
@@ -32,6 +35,7 @@ public class MarcaController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void eliminar(@PathVariable Long id) {
         marcaRepository.deleteById(id);
     }

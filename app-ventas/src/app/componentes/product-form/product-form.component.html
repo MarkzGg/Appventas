@@ -24,22 +24,21 @@
           </div>
 
           <div>
-            <label for="marca">Marca:</label>
-            <select id="marca" [(ngModel)]="producto.marca!.id" name="marca">
-              <option [ngValue]="null">Seleccione una marca</option>
-              <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="categoria">Categoría:</label>
-            <select id="categoria" [(ngModel)]="producto.categoria!.id" name="categoria">
-              <option [ngValue]="null">Seleccione una categoría</option>
-              <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
-            </select>
-          </div>
+        <label for="marca">Marca:</label>
+        <select id="marca" [(ngModel)]="producto.marca!.id" name="marca">
+          <option [ngValue]="undefined">-- Seleccione una Marca --</option>
+          <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
+        </select>
+      </div>
+      <!-- Select para Categoría -->
+      <div>
+        <label for="categoria">Categoría:</label>
+        <select id="categoria" [(ngModel)]="producto.categoria!.id" name="categoria">
+          <option [ngValue]="undefined">-- Seleccione una Categoría --</option>
+          <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
+        </select>
+      </div>
 
           <button type="submit">Guardar</button>
           <button type="button" (click)="cancelar()" style="background-color: gray;">Cancelar</button>
         </form>
-        

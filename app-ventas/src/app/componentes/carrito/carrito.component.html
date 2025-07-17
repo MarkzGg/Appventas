@@ -1,38 +1,37 @@
-<h2>Mi Carrito</h2>
+        <h2>Mi Carrito</h2>
 
-<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+        <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-<table *ngIf="carrito.length > 0">
-  <thead>
-    <tr>
-      <th>Producto</th>
-      <th>Precio</th>
-      <th>Cantidad</th>
-      <th>Subtotal</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let item of carrito">
-      <td>{{ item.producto.nombre }}</td>
-      <td>S/ {{ item.producto.precio }}</td>
-      <td>{{ item.cantidad }}</td>
-      <td>S/ {{ (item.producto.precio ?? 0) * item.cantidad }}</td>
-      <td>
-          <input type="number" [(ngModel)]="item.cantidad" min="1" (change)="actualizarCantidad(item)" style="width: 60px;">
-        </td>
-        <td>S/ {{ (item.producto.precio || 0) * item.cantidad }}</td>
-        <td>
-          <button (click)="eliminarItem(item.id!)" style="background-color: orange;">Eliminar</button>
-      </td>
-    </tr>
-  </tbody>
-</table>
+        <table *ngIf="carrito.length > 0">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Precio</th>
+              <th>Cantidad</th>
+              <th>Subtotal</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of carrito">
+              <td>{{ item.producto.nombre }}</td>
+              <td>S/ {{ item.producto.precio }}</td>
+              <td>
+                <input type="number" [(ngModel)]="item.cantidad" min="1" (change)="actualizarCantidad(item)" style="width: 60px;">
+              </td>
+              <td>S/ {{ (item.producto.precio || 0) * item.cantidad }}</td>
+              <td>
+                <button (click)="eliminarItem(item.id!)" style="background-color: orange;">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-<p *ngIf="carrito.length > 0" class="total">Total: S/ {{ getTotal() }}</p>
+        <p *ngIf="carrito.length > 0" class="total">Total: S/ {{ getTotal() }}</p>
 
-<div *ngIf="carrito.length > 0">
-  <button (click)="limpiarCarrito()" style="background-color: #dc3545; margin-right: 10px;">Vaciar Carrito</button>
-  <button (click)="realizarPedido()" style="background-color: #28a745;">Realizar Pedido</button>
-</div>
-<p *ngIf="carrito.length === 0">Tu carrito está vacío.</p>
+        <div *ngIf="carrito.length > 0" class="cart-actions"> <!-- Añadida clase para los botones -->
+          <button (click)="limpiarCarrito()" style="background-color: #dc3545;">Vaciar Carrito</button>
+          <button (click)="realizarPedido()" style="background-color: #28a745;">Realizar Pedido</button>
+        </div>
+        <p *ngIf="carrito.length === 0">Tu carrito está vacío.</p>
+        

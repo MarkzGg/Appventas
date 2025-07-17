@@ -14,7 +14,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,109 +45,107 @@ public class BoletaController {
     private static final BigDecimal IGV_RATE = new BigDecimal("0.18"); 
 
     @PostMapping("/generar")
-    @PreAuthorize("hasAnyRole('COMPRADOR','USER', 'ADMIN')") 
+    @PreAuthorize("permitAll()") // Accesible por USER y ADMIN
     @Transactional 
     public ResponseEntity<?> generarBoleta(@Valid @RequestBody List<PedidoRequest> pedidos) {
-        if (pedidos == null || pedidos.isEmpty()) {
-            return ResponseEntity.badRequest().body("La lista de pedidos no puede estar vacía.");
-        }
-
-        Map<Long, Integer> productosEnPedido = new HashMap<>();
-        for (PedidoRequest p : pedidos) {
-            productosEnPedido.merge(p.getProductoId(), p.getCantidad(), Integer::sum);
-        }
-
-        List<DetalleBoleta> detallesBoleta = new ArrayList<>();
-        BigDecimal subtotalGeneral = BigDecimal.ZERO;
-        StringBuilder mensajeStockInsuficiente = new StringBuilder();
-
-        // Primera pasada: Verificar stock y calcular subtotal por producto
-        for (Map.Entry<Long, Integer> entry : productosEnPedido.entrySet()) {
-            Long productoId = entry.getKey();
-            Integer cantidadSolicitada = entry.getValue();
-
-            Producto producto = productoRepository.findById(productoId)
-                    .orElse(null);
-
-            if (producto == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Producto con ID " + productoId + " no encontrado.");
+        try {
+            if (pedidos == null || pedidos.isEmpty()) {
+                return ResponseEntity.badRequest().body("La lista de pedidos no puede estar vacía.");
             }
 
-            if (producto.getStock() < cantidadSolicitada) {
-                mensajeStockInsuficiente.append("No hay stock suficiente para el producto '")
-                        .append(producto.getNombre())
-                        .append("'. Stock disponible: ")
-                        .append(producto.getStock())
-                        .append(". Cantidad solicitada: ")
-                        .append(cantidadSolicitada)
-                        .append(".\n");
-            } else {
-                
-                BigDecimal precioUnitario = producto.getPrecio();
-                BigDecimal subtotalDetalle = precioUnitario.multiply(BigDecimal.valueOf(cantidadSolicitada));
-                subtotalGeneral = subtotalGeneral.add(subtotalDetalle);
-
-                DetalleBoleta detalle = new DetalleBoleta();
-                detalle.setProducto(producto);
-                detalle.setCantidad(cantidadSolicitada);
-                detalle.setPrecioUnitario(precioUnitario);
-                detalle.setSubtotalDetalle(subtotalDetalle);
-                detallesBoleta.add(detalle);
+            Map<Long, Integer> productosEnPedido = new HashMap<>();
+            for (PedidoRequest p : pedidos) {
+                productosEnPedido.merge(p.getProductoId(), p.getCantidad(), Integer::sum);
             }
+
+            List<DetalleBoleta> detallesBoleta = new ArrayList<>();
+            BigDecimal subtotalGeneral = BigDecimal.ZERO;
+            StringBuilder mensajeStockInsuficiente = new StringBuilder();
+
+            // Primera pasada: Verificar stock y calcular subtotal por producto
+            for (Map.Entry<Long, Integer> entry : productosEnPedido.entrySet()) {
+                Long productoId = entry.getKey();
+                Integer cantidadSolicitada = entry.getValue();
+
+                Producto producto = productoRepository.findById(productoId)
+                        .orElse(null);
+
+                if (producto == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Producto con ID " + productoId + " no encontrado.");
+                }
+
+                if (producto.getStock() < cantidadSolicitada) {
+                    mensajeStockInsuficiente.append("No hay stock suficiente para el producto '")
+                            .append(producto.getNombre())
+                            .append("'. Stock disponible: ")
+                            .append(producto.getStock())
+                            .append(". Cantidad solicitada: ")
+                            .append(cantidadSolicitada)
+                            .append(".\n");
+                } else {
+                    BigDecimal precioUnitario = producto.getPrecio();
+                    BigDecimal subtotalDetalle = precioUnitario.multiply(BigDecimal.valueOf(cantidadSolicitada));
+                    subtotalGeneral = subtotalGeneral.add(subtotalDetalle);
+
+                    DetalleBoleta detalle = new DetalleBoleta();
+                    detalle.setProducto(producto);
+                    detalle.setCantidad(cantidadSolicitada);
+                    detalle.setPrecioUnitario(precioUnitario);
+                    detalle.setSubtotalDetalle(subtotalDetalle);
+                    detallesBoleta.add(detalle);
+                }
+            }
+
+            if (mensajeStockInsuficiente.length() > 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mensajeStockInsuficiente.toString());
+            }
+
+            String numeroBoleta = generarSiguienteNumeroBoleta();
+
+            BigDecimal igvCalculado = subtotalGeneral.multiply(IGV_RATE).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal totalGeneral = subtotalGeneral.add(igvCalculado).setScale(2, RoundingMode.HALF_UP);
+
+            Boleta boleta = new Boleta();
+            boleta.setNumeroBoleta(numeroBoleta);
+            boleta.setFechaEmision(LocalDateTime.now());
+            boleta.setSubtotal(subtotalGeneral.setScale(2, RoundingMode.HALF_UP));
+            boleta.setIgv(igvCalculado);
+            boleta.setTotal(totalGeneral);
+            boleta.setDetalles(detallesBoleta);
+
+            boletaRepository.save(boleta);
+
+            StringBuilder mensajeBoleta = new StringBuilder();
+            mensajeBoleta.append("--- BOLETA DE VENTA ---\n");
+            mensajeBoleta.append("Número de Boleta: ").append(boleta.getNumeroBoleta()).append("\n");
+            mensajeBoleta.append("Fecha de Emisión: ").append(boleta.getFechaEmision()).append("\n\n");
+            mensajeBoleta.append("Detalle de Productos:\n");
+
+            for (DetalleBoleta detalle : detallesBoleta) {
+                detalle.setBoleta(boleta); 
+                detalleBoletaRepository.save(detalle); 
+
+                // Actualizar stock del producto
+                Producto producto = detalle.getProducto();
+                producto.setStock(producto.getStock() - detalle.getCantidad());
+                productoRepository.save(producto);
+
+                mensajeBoleta.append("- ").append(producto.getNombre())
+                        .append(" (x").append(detalle.getCantidad()).append("): ")
+                        .append(detalle.getPrecioUnitario()).append(" c/u - Subtotal: ")
+                        .append(detalle.getSubtotalDetalle().setScale(2, RoundingMode.HALF_UP)).append("\n");
+            }
+
+            mensajeBoleta.append("\n");
+            mensajeBoleta.append("Subtotal: S/ ").append(boleta.getSubtotal()).append("\n");
+            mensajeBoleta.append("IGV (18%): S/ ").append(boleta.getIgv()).append("\n");
+            mensajeBoleta.append("Total a Pagar: S/ ").append(boleta.getTotal()).append("\n");
+            mensajeBoleta.append("-----------------------\n");
+
+            return ResponseEntity.ok(mensajeBoleta.toString());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al generar la boleta: " + e.getMessage());
         }
-
-        if (mensajeStockInsuficiente.length() > 0) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mensajeStockInsuficiente.toString());
-        }
-
-        
-        String numeroBoleta = generarSiguienteNumeroBoleta();
-
-        
-        BigDecimal igvCalculado = subtotalGeneral.multiply(IGV_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalGeneral = subtotalGeneral.add(igvCalculado).setScale(2, RoundingMode.HALF_UP);
-
-        
-        Boleta boleta = new Boleta();
-        boleta.setNumeroBoleta(numeroBoleta);
-        boleta.setFechaEmision(LocalDateTime.now());
-        boleta.setSubtotal(subtotalGeneral.setScale(2, RoundingMode.HALF_UP));
-        boleta.setIgv(igvCalculado);
-        boleta.setTotal(totalGeneral);
-        boleta.setDetalles(detallesBoleta);
-
-        
-        boletaRepository.save(boleta);
-
-        
-        StringBuilder mensajeBoleta = new StringBuilder();
-        mensajeBoleta.append("--- BOLETA DE VENTA ---\n");
-        mensajeBoleta.append("Número de Boleta: ").append(boleta.getNumeroBoleta()).append("\n");
-        mensajeBoleta.append("Fecha de Emisión: ").append(boleta.getFechaEmision()).append("\n\n");
-        mensajeBoleta.append("Detalle de Productos:\n");
-
-        for (DetalleBoleta detalle : detallesBoleta) {
-            detalle.setBoleta(boleta); 
-            detalleBoletaRepository.save(detalle); 
-
-            // Actualizar stock del producto
-            Producto producto = detalle.getProducto();
-            producto.setStock(producto.getStock() - detalle.getCantidad());
-            productoRepository.save(producto);
-
-            mensajeBoleta.append("- ").append(producto.getNombre())
-                    .append(" (x").append(detalle.getCantidad()).append("): ")
-                    .append(detalle.getPrecioUnitario()).append(" c/u - Subtotal: ")
-                    .append(detalle.getSubtotalDetalle().setScale(2, RoundingMode.HALF_UP)).append("\n");
-        }
-
-        mensajeBoleta.append("\n");
-        mensajeBoleta.append("Subtotal: S/ ").append(boleta.getSubtotal()).append("\n");
-        mensajeBoleta.append("IGV (18%): S/ ").append(boleta.getIgv()).append("\n");
-        mensajeBoleta.append("Total a Pagar: S/ ").append(boleta.getTotal()).append("\n");
-        mensajeBoleta.append("-----------------------\n");
-
-        return ResponseEntity.ok(mensajeBoleta.toString());
     }
 
     private String generarSiguienteNumeroBoleta() {
@@ -155,9 +155,7 @@ public class BoletaController {
             try {
                 ultimoNumero = Integer.parseInt(ultimaBoleta.getNumeroBoleta());
             } catch (NumberFormatException e) {
-                
                 System.err.println("Error al parsear el número de boleta: " + ultimaBoleta.getNumeroBoleta());
-                
             }
         }
         return String.format("%04d", ultimoNumero + 1);
@@ -170,5 +168,24 @@ public class BoletaController {
         Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
         List<Boleta> historial = boletaRepository.findByUsuario(usuario);
         return ResponseEntity.ok(historial);
+    }
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public ResponseEntity<String> eliminarBoleta(@PathVariable Long id) {
+        try {
+            Boleta boleta = boletaRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Boleta con ID " + id + " no encontrada."));
+            // Opcional: Revertir stock de productos antes de eliminar la boleta
+            for (DetalleBoleta detalle : boleta.getDetalles()) {
+                Producto producto = detalle.getProducto();
+                producto.setStock(producto.getStock() + detalle.getCantidad());
+                productoRepository.save(producto);
+            }
+            boletaRepository.delete(boleta);
+            return ResponseEntity.ok("Boleta eliminada correctamente. El stock de los productos ha sido revertido.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar la boleta: " + e.getMessage());
+        }
     }
 }

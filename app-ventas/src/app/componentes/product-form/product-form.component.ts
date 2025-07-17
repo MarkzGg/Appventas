@@ -30,8 +30,8 @@ export class ProductFormComponent implements OnInit {
     descripcion: '',
     precio: 0,
     stock: 0,
-    marca: { nombre: '' }, // Inicializar para evitar errores de acceso
-    categoria: { nombre: '' } // Inicializar
+    marca: {id: undefined, nombre: '' }, // Inicializar para evitar errores de acceso
+    categoria: { id: undefined, nombre: ''} // Inicializar
   };
   mensaje = '';
   editando = false;
@@ -136,6 +136,21 @@ export class ProductFormComponent implements OnInit {
       });
     }
   }
+  // product-form.component.ts
+eliminarProducto(): void {
+    if (this.producto.id) {
+        this.productoService.eliminarProducto(this.producto.id).subscribe({
+            next: () => {
+                this.mensaje = 'Producto eliminado con éxito.';
+                this.router.navigate(['/admin/productos']); // Redirigir después de eliminar
+            },
+            error: () => this.mensaje = 'Error al eliminar producto'
+        });
+    } else {
+        this.mensaje = 'No se puede eliminar un producto sin ID.';
+    }
+}
+
 
   cancelar(): void {
     this.cancelEdit.emit(); // Emitir evento de cancelación

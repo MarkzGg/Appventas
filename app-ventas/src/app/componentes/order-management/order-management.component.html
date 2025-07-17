@@ -1,22 +1,22 @@
-    <h2>Gestión de Pedidos</h2>
+<h2>Gestión de Pedidos</h2>
 
-    <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-    <div *ngFor="let pedido of pedidos" class="pedido-card">
-      <h3>Boleta #{{ pedido.numeroBoleta }} - Fecha: {{ pedido.fechaEmision | date:'short' }}</h3>
-      <p>Usuario: {{ pedido.usuario?.username || 'N/A' }}</p> <!-- Asumiendo que Boleta tiene usuario -->
-      <p>Total: S/ {{ pedido.total | number:'1.2-2' }}</p>
+<div *ngFor="let pedido of pedidos" class="pedido-card">
+  <h3>Boleta #{{ pedido.numeroBoleta }} - Fecha: {{ pedido.fechaEmision | date:'short' }}</h3>
+  <p>Usuario: {{ pedido.usuario?.username || 'N/A' }}</p> <!-- Asumiendo que Boleta tiene usuario -->
+  <p>Total: S/ {{ pedido.total | number:'1.2-2' }}</p>
 
-      <button (click)="abrirModalDetallePedido(pedido)">Ver Detalle Completo</button>
-      <!-- Actualizar estado solo si es ADMIN -->
-      <select *ngIf="authService.isAdmin()" (change)="actualizarEstado(pedido.id!, $event)">
-        <option value="">Actualizar Estado</option>
-        <option value="PENDIENTE">PENDIENTE</option>
-        <option value="EN_PROCESO">EN PROCESO</option>
-        <option value="ENVIADO">ENVIADO</option>
-        <option value="ENTREGADO">ENTREGADO</option>
-        <option value="CANCELADO">CANCELADO</option>
-      </select>
-    </div>
+  <button (click)="abrirModalDetallePedido(pedido)">Ver Detalle Completo</button>
+  <!-- Actualizar estado solo si es ADMIN -->
+  <select *ngIf="authService.isAdmin()" (change)="actualizarEstado(pedido.id!, $event)">
+    <option value="">Actualizar Estado</option>
+    <option value="PENDIENTE">PENDIENTE</option>
+    <option value="EN_PROCESO">EN PROCESO</option>
+    <option value="ENVIADO">ENVIADO</option>
+    <option value="ENTREGADO">ENTREGADO</option>
+    <option value="CANCELADO">CANCELADO</option>
+  </select>
+</div>
 
-    <p *ngIf="pedidos.length === 0">No hay pedidos para gestionar.</p>
+<p *ngIf="pedidos.length === 0">No hay pedidos para gestionar.</p>

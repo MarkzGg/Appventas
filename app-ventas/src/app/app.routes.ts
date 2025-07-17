@@ -48,25 +48,25 @@ export const routes: Routes = [
   // { path: '', redirectTo: '/products', pathMatch: 'full' },
   // { path: '**', redirectTo: '/products' }
   { path: 'login', component: LoginComponent },
-      { path: 'register', component: RegisterComponent },
-      // Rutas públicas (accesibles por todos, incluyendo visitantes sin token)
-      { path: 'products', component: ProductsComponent}, // Ya permitida en backend SecurityConfig
-      // Rutas para COMPRADORES (requieren AuthGuard)
-      { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
-      { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
-      { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
-      // Rutas para USER y ADMIN (requieren UserAdminGuard)
-      // AdminComponent es un panel general, si solo ADMIN debe verlo, usa AdminGuard
-      { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] }, // Solo ADMIN
-      { path: 'admin/productos', component: AdminComponent, canActivate: [UserAdminGuard] }, // AdminComponent lista productos, USER y ADMIN pueden verla
-      { path: 'admin/productos/create', component: ProductFormComponent, canActivate: [AdminGuard] }, // Solo ADMIN puede crear
-      { path: 'admin/productos/edit/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] }, // USER y ADMIN pueden editar (si el backend lo permite)
-      // Rutas exclusivas para ADMINISTRADORES (requieren AdminGuard)
-      { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
-      { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
-      { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
-      { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
-      { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [UserAdminGuard] },
-      { path: '', redirectTo: '/products', pathMatch: 'full' },
-      { path: '**', redirectTo: '/products' }
+  { path: 'register', component: RegisterComponent },
+  // Rutas públicas (accesibles por todos, incluyendo visitantes sin token)
+  { path: 'products', component: ProductsComponent}, // Ya permitida en backend SecurityConfig
+  // Rutas para COMPRADORES (requieren AuthGuard)
+  { path: 'carrito', component: CarritoComponent, canActivate: [AuthGuard] },
+  { path: 'pedidos', component: PedidosComponent, canActivate: [AuthGuard] },
+  { path: 'perfil', component: PerfilComponent, canActivate: [AuthGuard] },
+  // Rutas para USER y ADMIN (requieren UserAdminGuard)
+  // AdminComponent es un panel general, si solo ADMIN debe verlo, usa AdminGuard
+  { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] }, // Solo ADMIN
+  { path: 'admin/productos', component: AdminComponent, canActivate: [UserAdminGuard] }, // AdminComponent lista productos, USER y ADMIN pueden verla
+  { path: 'admin/productos/create', component: ProductFormComponent, canActivate: [AdminGuard] }, // Solo ADMIN puede crear
+  { path: 'admin/productos/edit/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] }, // USER y ADMIN pueden editar (si el backend lo permite)
+  // Rutas exclusivas para ADMINISTRADORES (requieren AdminGuard)
+  { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [UserAdminGuard] },
+  { path: '', redirectTo: '/products', pathMatch: 'full' },
+  { path: '**', redirectTo: '/products' }
 ];

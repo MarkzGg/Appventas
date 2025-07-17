@@ -21,7 +21,7 @@ public class ProductoController {
 
     // GET /productos - Obtener todos los productos
     @GetMapping
-    @PreAuthorize("hasAnyRole('VISITANTE','COMPRADOR', 'USER', 'ADMIN')") // Accesible por USER y ADMIN
+    @PreAuthorize("permitAll()") // Accesible por USER y ADMIN
     public ResponseEntity<List<Producto>> getAllProductos() {
         List<Producto> productos = productoService.getAllProductos();
         return new ResponseEntity<>(productos, HttpStatus.OK);
@@ -101,9 +101,11 @@ public class ProductoController {
      * Permisos: Accesible para usuarios con rol 'USER' o 'ADMIN'.
      */
     @GetMapping("/buscar")
-    @PreAuthorize("hasAnyRole('VISITANTE','COMPRADOR','USER', 'ADMIN')") // USER y ADMIN pueden buscar productos
+    @PreAuthorize("permitAll()") // USER y ADMIN pueden buscar productos
     public ResponseEntity<List<Producto>> searchProductosByDescription(@RequestParam String keyword) {
         List<Producto> productos = productoService.searchProductosByDescription(keyword);
         return new ResponseEntity<>(productos, HttpStatus.OK);
     }
+
+    
 }

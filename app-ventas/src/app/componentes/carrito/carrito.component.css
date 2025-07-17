@@ -1,100 +1,100 @@
 h2 {
-      color: #333333;
-      text-align: center;
-      margin-top: 20px;
-      margin-bottom: 30px;
-    }
-    table {
-      width: 90%; /* Aumentar el ancho de la tabla */
-      margin: 0 auto 30px auto; /* Centrar y añadir margen inferior */
-      border-collapse: collapse;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      background-color: #FFFFFF;
-      border-radius: 8px;
-      overflow: hidden; /* Para que los bordes redondeados se apliquen a la tabla */
-    }
-    th, td {
-      padding: 15px; /* Aumentar el padding */
-      border: 1px solid #eee; /* Bordes más suaves */
-      text-align: center;
-      color: #333333;
-    }
+  color: #333333;
+  text-align: center;
+  margin-top: 20px;
+  margin-bottom: 30px;
+}
+table {
+  width: 90%; /* Aumentar el ancho de la tabla */
+  margin: 0 auto 30px auto; /* Centrar y añadir margen inferior */
+  border-collapse: collapse;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  overflow: hidden; /* Para que los bordes redondeados se apliquen a la tabla */
+}
+th, td {
+  padding: 15px; /* Aumentar el padding */
+  border: 1px solid #eee; /* Bordes más suaves */
+  text-align: center;
+  color: #333333;
+}
 th {
-      background-color: #F5F5F5; /* Gris claro para encabezados de tabla */
-      font-weight: bold;
-      text-transform: uppercase;
-      font-size: 0.9rem;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9; /* Rayas para mejor legibilidad */
-    }
-    tr:hover {
-      background-color: #f1f1f1;
-    }
-    td input[type="number"] {
-      width: 70px; /* Ajustar ancho del input de cantidad */
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      text-align: center;
-    }
+  background-color: #F5F5F5; /* Gris claro para encabezados de tabla */
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+tr:nth-child(even) {
+  background-color: #f9f9f9; /* Rayas para mejor legibilidad */
+}
+tr:hover {
+  background-color: #f1f1f1;
+}
+td input[type="number"] {
+  width: 70px; /* Ajustar ancho del input de cantidad */
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+}
 .total {
-      font-size: 1.5rem; /* Tamaño más grande para el total */
-      font-weight: bold;
-      text-align: right;
-      margin-right: 5%; /* Alineado con la tabla */
-      margin-bottom: 30px;
-      color: #333333;
-    }
-    .cart-actions {
-      display: flex;
-      justify-content: center;
-      gap: 20px; /* Espacio entre botones */
-      margin-bottom: 40px;
-    }
-    .cart-actions button {
-      padding: 12px 25px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1.1rem;
-      font-weight: bold;
-      transition: background-color 0.3s ease;
-      color: white;
-    }
-    .cart-actions button[style*="background-color: #dc3545;"] { /* Vaciar Carrito */
-      background-color: #E53935; /* Rojo */
-    }
-    .cart-actions button[style*="background-color: #dc3545;"]:hover {
-      background-color: #C82333;
-    }
-    .cart-actions button[style*="background-color: #28a745;"] { /* Realizar Pedido */
-      background-color: #43A047; /* Verde */
-    }
-    .cart-actions button[style*="background-color: #28a745;"]:hover {
-      background-color: #218838;
-    }
-    .cart-actions button[style*="background-color: orange;"] { /* Eliminar Item */
-      background-color: orange;
-    }
-    .cart-actions button[style*="background-color: orange;"]:hover {
-      background-color: darkorange;
-    }
+  font-size: 1.5rem; /* Tamaño más grande para el total */
+  font-weight: bold;
+  text-align: right;
+  margin-right: 5%; /* Alineado con la tabla */
+  margin-bottom: 30px;
+  color: #333333;
+}
+.cart-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px; /* Espacio entre botones */
+  margin-bottom: 40px;
+}
+.cart-actions button {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+  color: white;
+}
+.cart-actions button[style*="background-color: #dc3545;"] { /* Vaciar Carrito */
+  background-color: #E53935; /* Rojo */
+}
+.cart-actions button[style*="background-color: #dc3545;"]:hover {
+  background-color: #C82333;
+}
+.cart-actions button[style*="background-color: #28a745;"] { /* Realizar Pedido */
+  background-color: #43A047; /* Verde */
+}
+.cart-actions button[style*="background-color: #28a745;"]:hover {
+  background-color: #218838;
+}
+.cart-actions button[style*="background-color: orange;"] { /* Eliminar Item */
+  background-color: orange;
+}
+.cart-actions button[style*="background-color: orange;"]:hover {
+  background-color: darkorange;
+}
 
-    .mensaje {
-      text-align: center;
-      margin-bottom: 20px;
-      padding: 10px;
-      border-radius: 5px;
-      font-weight: bold;
-    }
-    .mensaje[style*="color: green;"] {
-      background-color: #e0ffe0;
-      border: 1px solid #ccffcc;
-      color: #43A047; /* Verde */
-    }
-    .mensaje[style*="color: red;"] {
-      background-color: #ffe0e0;
-      border: 1px solid #ffcccc;
-      color: #E53935; /* Rojo */
-    }
+.mensaje {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+.mensaje[style*="color: green;"] {
+  background-color: #e0ffe0;
+  border: 1px solid #ccffcc;
+  color: #43A047; /* Verde */
+}
+.mensaje[style*="color: red;"] {
+  background-color: #ffe0e0;
+  border: 1px solid #ffcccc;
+  color: #E53935; /* Rojo */
+}

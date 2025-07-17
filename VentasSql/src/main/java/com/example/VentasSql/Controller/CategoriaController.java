@@ -10,24 +10,24 @@ import java.util.List;
 @RestController
 @RequestMapping("/categorias")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('USER','ADMIN')") // Ajusta los roles según tu necesidad
+
 public class CategoriaController {
     private final CategoriaRepository categoriaRepository;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede crear categorías
+    @PreAuthorize("hasRole('ADMIN')")
     public Categoria crear(@RequestBody Categoria categoria) {
         return categoriaRepository.save(categoria);
     }
 
     @GetMapping
-    @PreAuthorize("permitAll()") // Accesible por todos para listar categorías en el frontend
+    @PreAuthorize("permitAll()")
     public List<Categoria> listar() {
         return categoriaRepository.findAll();
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede actualizar categorías
+    @PreAuthorize("hasRole('ADMIN')")
     public Categoria actualizar(@PathVariable Long id, @RequestBody Categoria data) {
         Categoria c = categoriaRepository.findById(id).orElseThrow();
         c.setNombre(data.getNombre());
@@ -35,7 +35,7 @@ public class CategoriaController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede eliminar categorías
+    @PreAuthorize("hasRole('ADMIN')")
     public void eliminar(@PathVariable Long id) {
         categoriaRepository.deleteById(id);
     }

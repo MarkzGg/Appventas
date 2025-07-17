@@ -1,7 +1,7 @@
 <h2>Gestión de Marcas</h2>
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-<div>
+<div class="creation-form"> <!-- Añadida clase para el formulario de creación -->
   <h3>Crear Nueva Marca</h3>
   <input type="text" [(ngModel)]="nuevaMarcaNombre" placeholder="Nombre de la marca" />
   <button (click)="crearMarca()">Crear</button>
@@ -20,7 +20,7 @@
       <td>{{ marca.id }}</td>
       <td>{{ marca.nombre }}</td>
       <td>
-        <button (click)="abrirModalEditarMarca(marca)">Editar</button> <!-- Cambiado -->
+        <button (click)="abrirModalEditarMarca(marca)">Editar</button>
         <button (click)="eliminarMarca(marca.id!)" style="background-color: #dc3545;">Eliminar</button>
       </td>
     </tr>
@@ -28,5 +28,3 @@
 </table>
 
 <p *ngIf="marcas.length === 0">No hay marcas registradas.</p>
-
-<!-- Aquí iría el componente del modal de edición de marca -->

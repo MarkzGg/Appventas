@@ -1,43 +1,43 @@
-    <h2>Catálogo de Productos</h2>
+<h2>Catálogo de Productos</h2>
 
-    <!-- Barra de Búsqueda y Filtros -->
-    <div class="filters-section">
-      <input type="text" [(ngModel)]="keyword" placeholder="Buscar por descripción..." (keyup.enter)="buscarProductos()">
-      <button (click)="buscarProductos()">Buscar</button>
+<!-- Barra de Búsqueda y Filtros -->
+<div class="filters-section">
+  <input type="text" [(ngModel)]="keyword" placeholder="Buscar por descripción..." (keyup.enter)="buscarProductos()">
+  <button (click)="buscarProductos()">Buscar</button>
 
-      <select [(ngModel)]="selectedCategory" (change)="filtrarProductos()">
-        <option [ngValue]="null">Todas las Categorías</option>
-        <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
-      </select>
+  <select [(ngModel)]="selectedCategory" (change)="filtrarProductos()">
+    <option [ngValue]="null">Todas las Categorías</option>
+    <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
+  </select>
 
-      <select [(ngModel)]="selectedMarca" (change)="filtrarProductos()">
-        <option [ngValue]="null">Todas las Marcas</option>
-        <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
-      </select>
-    </div>
+  <select [(ngModel)]="selectedMarca" (change)="filtrarProductos()">
+    <option [ngValue]="null">Todas las Marcas</option>
+    <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
+  </select>
+</div>
 
-    <div class="product-grid">
-      <div class="product-card" *ngFor="let producto of productos" (click)="seleccionarProducto(producto)">
-        <h3>{{ producto.nombre }}</h3>
-        <p>Precio: S/ {{ producto.precio }}</p>
-        <p>Stock: {{ producto.stock }}</p>
-        <p *ngIf="producto.marca">Marca: {{ producto.marca.nombre }}</p>
-        <p *ngIf="producto.categoria">Categoría: {{ producto.categoria.nombre }}</p>
-        <!-- Botón Añadir al Carrito -->
-        <button *ngIf="auth.isComprador() || auth.isVisitante()" (click)="agregarAlCarrito(producto); $event.stopPropagation();">Añadir al Carrito</button>
-        <p *ngIf="producto.stock === 0" style="color: red;">Sin stock disponible</p>
-      </div>
-    </div>
+<div class="product-grid">
+  <div class="product-card" *ngFor="let producto of productos" (click)="seleccionarProducto(producto)">
+    <h3>{{ producto.nombre }}</h3>
+    <p>Precio: S/ {{ producto.precio }}</p>
+    <p>Stock: {{ producto.stock }}</p>
+    <p *ngIf="producto.marca">Marca: {{ producto.marca.nombre }}</p>
+    <p *ngIf="producto.categoria">Categoría: {{ producto.categoria.nombre }}</p>
+    <!-- Botón Añadir al Carrito -->
+    <button *ngIf="auth.isComprador() || auth.isVisitante()" (click)="agregarAlCarrito(producto); $event.stopPropagation();">Añadir al Carrito</button>
+    <p *ngIf="producto.stock === 0" style="color: red;">Sin stock disponible</p>
+  </div>
+</div>
 
-    <div *ngIf="productoSeleccionado" class="product-detail-popup">
-      <h3>Detalle del Producto</h3>
-      <p><strong>Nombre:</strong> {{ productoSeleccionado?.nombre }}</p>
-      <p><strong>Descripción:</strong> {{ productoSeleccionado?.descripcion }}</p>
-      <p><strong>Precio:</strong> S/ {{ productoSeleccionado?.precio }}</p>
-      <p><strong>Stock:</strong> {{ productoSeleccionado?.stock }}</p>
-      <p *ngIf="productoSeleccionado?.marca?.nombre"><strong>Marca:</strong> {{ productoSeleccionado?.marca?.nombre }}</p>
-      <p *ngIf="productoSeleccionado?.categoria?.nombre"><strong>Categoría:</strong> {{ productoSeleccionado?.categoria?.nombre }}</p>
-      <button *ngIf="auth.isComprador() || auth.isVisitante()" (click)="agregarAlCarrito(productoSeleccionado!)">Añadir al Carrito</button>
-      <p *ngIf="productoSeleccionado?.stock === 0" style="color: red;">Sin stock disponible</p>
-      <button (click)="productoSeleccionado = null">Cerrar</button>
-    </div>
+<div *ngIf="productoSeleccionado" class="product-detail-popup">
+  <h3>Detalle del Producto</h3>
+  <p><strong>Nombre:</strong> {{ productoSeleccionado?.nombre }}</p>
+  <p><strong>Descripción:</strong> {{ productoSeleccionado?.descripcion }}</p>
+  <p><strong>Precio:</strong> S/ {{ productoSeleccionado?.precio }}</p>
+  <p><strong>Stock:</strong> {{ productoSeleccionado?.stock }}</p>
+  <p *ngIf="productoSeleccionado?.marca?.nombre"><strong>Marca:</strong> {{ productoSeleccionado?.marca?.nombre }}</p>
+  <p *ngIf="productoSeleccionado?.categoria?.nombre"><strong>Categoría:</strong> {{ productoSeleccionado?.categoria?.nombre }}</p>
+  <button *ngIf="auth.isComprador() || auth.isVisitante()" (click)="agregarAlCarrito(productoSeleccionado!)">Añadir al Carrito</button>
+  <p *ngIf="productoSeleccionado?.stock === 0" style="color: red;">Sin stock disponible</p>
+  <button (click)="productoSeleccionado = null">Cerrar</button>
+</div>
