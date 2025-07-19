@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
-import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Producto;
 
 @Entity
 @Data

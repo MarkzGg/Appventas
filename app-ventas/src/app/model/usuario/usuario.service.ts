@@ -2,9 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Usuario } from './usuario';
 import { environment } from '../../../environments/environment';
+import { Observable } from 'rxjs';
+
 
 @Injectable({ providedIn: 'root' })
 export class UsuarioService {
+
   private baseUrl = `${environment.apiUrl}/usuario`;
 
   constructor(private http: HttpClient) {}
@@ -13,13 +16,14 @@ export class UsuarioService {
     return this.http.get<Usuario[]>(`${this.baseUrl}/listar`);
   }
 
-  crearUsuario(usuario: Usuario) {
-    return this.http.post<Usuario>(this.baseUrl, usuario);
-  }
+   crearUsuario(usuario: Usuario): Observable<Usuario> {
+       return this.http.post<Usuario>(`${environment.apiUrl}/admin/registro-usuario`, usuario);
+   }
 
-  actualizarUsuario(usuario: Usuario) {
-    return this.http.put<Usuario>(`${this.baseUrl}/${usuario.id}`, usuario);
-  }
+  editarUsuario(usuario: Usuario): Observable<Usuario> {
+    return this.http.put<Usuario>(`${environment.apiUrl}/admin/editar-usuario/${usuario.id}`, usuario);
+}
+
 
   eliminarUsuario(id: number) {
     return this.http.delete(`${this.baseUrl}/${id}`);
@@ -35,4 +39,5 @@ export class UsuarioService {
   actualizarPerfil(usuario: Usuario) {
     return this.http.put(`${this.baseUrl}/perfil`, usuario);
   }
+
 }

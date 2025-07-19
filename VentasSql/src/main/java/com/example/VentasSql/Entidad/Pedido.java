@@ -1,4 +1,4 @@
-package com.example.VentasSql.Model;
+package com.example.VentasSql.Entidad;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Data 
@@ -17,9 +19,13 @@ public class Pedido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    private Producto producto;
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DetallePedido> detalles;
 
-    private Integer cantidad;
+    @ManyToOne
+    private Uuser usuario;
+
+    private LocalDateTime fechaPedido;
+
     private BigDecimal total;
 }

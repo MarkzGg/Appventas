@@ -1,7 +1,5 @@
 package com.example.VentasSql.Entidad;
-
-import com.example.VentasSql.Model.Producto;
-import com.example.VentasSql.Entidad.Uuser; 
+import com.example.VentasSql.Entidad.Producto;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;

@@ -50,9 +50,11 @@ public class AuthController {
         Uuser u = Uuser.builder()
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .nombre(request.getNombre()) // Asignamos el nombre
                 .role(request.getRole()) 
                 .build();
         userRepository.save(u);
+        String token = jwtUtil.generateToken(u.getUsername(), u.getRole().name());
         return ResponseEntity.ok("Usuario registrado correctamente con rol " + request.getRole().name() + ".");
     }
 
@@ -102,6 +104,24 @@ public class AuthController {
         String token = jwtUtil.generateToken(request.getUsername(), user.getRole().name());
         return new AuthResponse(token);
     }
+    @PutMapping("/admin/editar-usuario/{id}")
+@PreAuthorize("hasRole('ADMIN')")
+public ResponseEntity<String> editarUsuario(@PathVariable Long id, @RequestBody RegisterRequest request) {
+    Uuser usuario = userRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+    // Actualizar los campos del usuario
+    usuario.setUsername(request.getUsername());
+    if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+        usuario.setPassword(passwordEncoder.encode(request.getPassword())); // Codificar la nueva contraseña
+    }
+    usuario.setNombre(request.getNombre());
+    usuario.setRole(request.getRole());
+
+    userRepository.save(usuario);
+    return ResponseEntity.ok("Usuario actualizado correctamente.");
+}
+
 
     @GetMapping("/token-visitante")
     public AuthResponse generarTokenVisitante() {

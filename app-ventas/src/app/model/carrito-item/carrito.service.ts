@@ -4,9 +4,10 @@ import { CarritoItem } from './carrito-item';
 import { PedidoRequest } from '../pedido-request/pedido-request';
 import { environment } from '../../../environments/environment';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: 'root'  })
 export class CarritoService {
   private baseUrl = `${environment.apiUrl}/carrito`;
+  private pedidoUrl = `${environment.apiUrl}/pedidos`;
 
   constructor(private http: HttpClient)
         {}
@@ -21,5 +22,13 @@ export class CarritoService {
 
   agregarProducto(pedido: PedidoRequest) {
     return this.http.post(`${this.baseUrl}/agregar`, pedido);
+  }
+
+  crearPedido(pedidos: PedidoRequest[]) {
+    return this.http.post(`${this.pedidoUrl}/crear`, pedidos);
+  }
+
+  eliminarProducto(itemId: number) {
+    return this.http.delete(`${this.baseUrl}/${itemId}`);
   }
 }

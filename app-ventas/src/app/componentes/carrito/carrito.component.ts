@@ -38,19 +38,27 @@ export class CarritoComponent implements OnInit {
       return;
     }
     const pedidos: PedidoRequest[] = this.carrito.map(item => ({
-      productoId: item.producto?.id || 0, // Asegúrate de que producto.id no sea undefined
+      productoId: item.producto?.id || 0,
       cantidad: item.cantidad
     }));
-    this.boletaService.generarBoleta(pedidos).subscribe({
+    this.carritoService.crearPedido(pedidos).subscribe({
       next: (res: any) => {
-        this.mensaje = 'Pedido realizado con éxito! ' + res; // El backend devuelve un mensaje
-        this.carrito = []; // Vaciar carrito en frontend
-        // Opcional: Redirigir a la página de pedidos o mostrar un modal de confirmación
-        this.router.navigate(['/pedidos']);
+        this.mensaje = 'Pedido creado con éxito! ' + (res.message || '');
+        this.boletaService.generarBoleta(pedidos).subscribe({
+          next: (res2: any) => {
+            this.mensaje += ' Boleta generada con éxito!';
+            this.carrito = [];
+            this.router.navigate(['/pedidos']);
+          },
+          error: (err2) => {
+            console.error('Error al generar la boleta:', err2);
+            this.mensaje = 'Error al generar la boleta: ' + (err2.error?.error || 'Verifique el stock o sus datos.');
+          }
+        });
       },
-      error: (err) => {
-        console.error('Error al realizar el pedido:', err);
-        this.mensaje = 'Error al realizar el pedido: ' + (err.error || 'Verifique el stock o sus datos.');
+      error: (err: any) => {
+        console.error('Error al crear el pedido:', err);
+        this.mensaje = 'Error al crear el pedido: ' + (err.error?.error || 'Verifique el stock o sus datos.');
       }
     });
   }
@@ -60,8 +68,9 @@ export class CarritoComponent implements OnInit {
         if (item.cantidad <= 0) {
           item.cantidad = 1; // O eliminar el item si la cantidad es 0
         }
-        this.mensaje = `Cantidad de ${item.producto?.nombre} actualizada a ${item.cantidad}`;
-        }
+        // Como backend no soporta actualizar cantidad, solo actualizamos localmente y mostramos mensaje
+        this.mensaje = `Cantidad de ${item.producto?.nombre} actualizada a ${item.cantidad} (no sincronizado con backend)`;
+      }
 
   incrementarCantidad(item: CarritoItem): void {
         item.cantidad++;
@@ -89,15 +98,48 @@ export class CarritoComponent implements OnInit {
       next: () => {
         this.carrito = [];
         this.mensaje = 'Carrito vaciado';
+        // Redirigir a la página de productos tras vaciar carrito
+        this.router.navigate(['/products']);
       },
       error: () => this.mensaje = 'Error al limpiar carrito'
     });
   }
 
+  // realizarPedido(): void {
+  //   if (this.carrito.length === 0) {
+  //     this.mensaje = 'El carrito está vacío. No se puede realizar un pedido.';
+  //     return;
+  //   }
+  //   const pedidos: PedidoRequest[] = this.carrito.map(item => ({
+  //     productoId: item.producto?.id || 0,
+  //     cantidad: item.cantidad
+  //   }));
+  //   this.boletaService.generarBoleta(pedidos).subscribe({
+  //     next: (res: any) => {
+  //       this.mensaje = 'Pedido realizado con éxito! ' + res;
+  //       this.carrito = [];
+  //       this.router.navigate(['/pedidos']);
+  //     },
+  //     error: (err) => {
+  //       console.error('Error al realizar el pedido:', err);
+  //       this.mensaje = 'Error al realizar el pedido: ' + (err.error || 'Verifique el stock o sus datos.');
+  //     }
+  //   });
+  // }
+
 
   eliminarItem(itemId: number): void {
-    this.carrito = this.carrito.filter(item => item.id !== itemId);
-    this.mensaje = 'Producto eliminado del carrito.';
+    // Cambiar a usar el método correcto del servicio
+    this.carritoService.eliminarProducto(itemId).subscribe({
+      next: () => {
+        this.mensaje = 'Producto eliminado del carrito.';
+        this.obtenerCarrito(); // Refrescar carrito para sincronizar
+      },
+      error: (err: any) => {
+        console.error('Error al eliminar producto:', err);
+        this.mensaje = 'Error al eliminar el producto. Intente nuevamente.';
+      }
+    });
   }
 
   getTotal(): number {

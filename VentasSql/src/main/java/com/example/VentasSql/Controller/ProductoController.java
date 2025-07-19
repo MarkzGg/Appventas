@@ -1,6 +1,6 @@
 package com.example.VentasSql.Controller;
 
-import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Producto;
 import com.example.VentasSql.Service.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

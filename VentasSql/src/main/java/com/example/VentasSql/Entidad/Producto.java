@@ -1,4 +1,4 @@
-package com.example.VentasSql.Model;
+package com.example.VentasSql.Entidad;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

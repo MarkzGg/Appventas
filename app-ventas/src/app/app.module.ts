@@ -24,11 +24,7 @@ import { CategoryManagementComponent } from './componentes/category-management/c
 
 
 
-    PedidosComponent,
-
-
-    UserManagementComponent,
-    OrderManagementComponent,
+   
 
 
   ],

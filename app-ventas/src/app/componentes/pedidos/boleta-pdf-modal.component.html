@@ -1,0 +1,16 @@
+<div class="modal-overlay" *ngIf="pedido">
+  <div class="modal-content large-modal-content"> <h2>Vista Previa de Boleta - {{ pedido.numeroBoleta }}</h2>
+
+    <div *ngIf="loadingPdf" class="loading-message">Cargando PDF...</div>
+    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+
+    <div class="pdf-viewer-container" *ngIf="pdfUrl && !loadingPdf">
+      <iframe [src]="pdfUrl" width="100%" height="500px"></iframe>
+    </div>
+
+    <div class="modal-actions">
+      <button (click)="cerrarModal()">Cerrar</button>
+      <button (click)="descargarBoletaPdf()">Descargar Boleta PDF</button>
+    </div>
+  </div>
+</div>

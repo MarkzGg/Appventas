@@ -1,9 +1,12 @@
 package com.example.VentasSql.Controller;
 
+import com.example.VentasSql.Dto.AuthRequest;
 import com.example.VentasSql.Entidad.Uuser;
 import com.example.VentasSql.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import com.example.VentasSql.Repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.example.VentasSql.Seguridad.JwtUtil;
 
 
 
@@ -14,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 
+
 import java.security.Principal;
 import java.util.List;
 
@@ -21,8 +25,9 @@ import java.util.List;
 @RequestMapping("/usuario")
 @RequiredArgsConstructor
 public class UsuarioController {
-
+    private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
     
 
@@ -84,6 +89,8 @@ public class UsuarioController {
         Uuser usuarioActualizado = userRepository.save(usuario);
         return ResponseEntity.ok(usuarioActualizado);
     }
+    
+
 
 }
 

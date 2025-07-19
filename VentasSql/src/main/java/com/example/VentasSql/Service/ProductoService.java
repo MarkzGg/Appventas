@@ -1,6 +1,6 @@
 package com.example.VentasSql.Service;
 
-import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Producto;
 import com.example.VentasSql.Repository.ProductoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

@@ -4,7 +4,7 @@ import com.example.VentasSql.Dto.PedidoRequest;
 import com.example.VentasSql.Entidad.Boleta;
 import com.example.VentasSql.Entidad.DetalleBoleta;
 import com.example.VentasSql.Entidad.Uuser;
-import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Producto;
 import com.example.VentasSql.Repository.BoletaRepository;
 import com.example.VentasSql.Repository.DetalleBoletaRepository;
 import com.example.VentasSql.Repository.ProductoRepository;
@@ -142,9 +142,9 @@ public class BoletaController {
             mensajeBoleta.append("Total a Pagar: S/ ").append(boleta.getTotal()).append("\n");
             mensajeBoleta.append("-----------------------\n");
 
-            return ResponseEntity.ok(mensajeBoleta.toString());
+            return ResponseEntity.ok(java.util.Map.of("message", mensajeBoleta.toString()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al generar la boleta: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of("error", "Error al generar la boleta: " + e.getMessage()));
         }
     }
 

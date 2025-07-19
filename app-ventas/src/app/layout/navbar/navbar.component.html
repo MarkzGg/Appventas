@@ -1,39 +1,40 @@
-<!-- navbar.component.html -->
-        <!-- navbar.component.html -->
-        <nav>
-          <a routerLink="/products">Productos</a>
+<nav class="navbar">
+  <div class="navbar-left">
+    <a routerLink="/products">Productos</a>
+  </div>
 
-          <ng-container *ngIf="!authService.isAuthenticated()">
-            <a routerLink="/login">Iniciar sesión</a>
-            <a routerLink="/register">Registrarse</a> <!-- Cambiado a /register según app.routes.ts -->
-          </ng-container>
+  <div class="navbar-center">
+    <a routerLink="/carrito">Carrito</a>
+  </div>
 
-          <!-- Carrito siempre visible si se permite a visitantes -->
-          <a routerLink="/carrito">Carrito</a>
+  <div class="navbar-right">
+    <ng-container *ngIf="!authService.isAuthenticated()">
+      <a routerLink="/login">Iniciar sesión</a>
+      <a routerLink="/register">Registrarse</a>
+    </ng-container>
 
-          <ng-container *ngIf="authService.isAuthenticated()">
-            <a routerLink="/perfil">Perfil</a>
-            <a routerLink="/pedidos">Pedidos</a>
+    <ng-container *ngIf="authService.isAuthenticated()">
+      <a routerLink="/perfil">Perfil</a>
+      <a routerLink="/pedidos">Pedidos</a>
 
-            <!-- Enlaces de administración/gestión -->
-            <ng-container *ngIf="authService.isUser() || authService.isAdmin()">
-              <a routerLink="/admin/productos">Gestión Productos</a>
-              <a routerLink="/admin/pedidos">Gestión Pedidos</a>
-              <a routerLink="/admin/categorias">Gestión Categorías</a>
-              <a routerLink="/admin/marcas">Gestión Marcas</a>
-              <a routerLink="/admin/resenas">Moderación Reseñas</a>
-              <a routerLink="/admin/usuarios">Gestión Usuarios</a>
-            </ng-container>
+      <ng-container *ngIf="authService.isUser() || authService.isAdmin()">
+        <a routerLink="/admin/productos">Gestión Productos</a>
+        <a routerLink="/admin/pedidos">Gestión Pedidos</a>
+        <a routerLink="/admin/categorias">Gestión Categorías</a>
+        <a routerLink="/admin/marcas">Gestión Marcas</a>
+        <a routerLink="/admin/resenas">Moderación Reseñas</a>
+        <a routerLink="/admin/usuarios">Gestión Usuarios</a>
+      </ng-container>
+<!-- 
+      <ng-container *ngIf="authService.isAdmin()">
+        <a routerLink="/admin">Panel Admin</a>
+      </ng-container> -->
 
-            <!-- Enlace exclusivo para Admin -->
-            <ng-container *ngIf="authService.isAdmin()">
-              <a routerLink="/admin">Panel Admin</a> <!-- Si hay un panel general de admin -->
-            </ng-container>
+      <button class="logout-button" (click)="logout()">Salir</button>
+    </ng-container>
+  </div>
+</nav>
 
-            <button (click)="logout()">Salir</button>
-          </ng-container>
-        </nav>
-
-<footer>
+<footer class="footer">
   <p>© {{ currentYear }} Ventas Online</p>
 </footer>

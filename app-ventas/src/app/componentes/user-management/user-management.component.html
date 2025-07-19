@@ -2,64 +2,92 @@
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-<!-- Botón para crear un nuevo usuario -->
-<button (click)="crearNuevoUsuario()" *ngIf="authService.isAdmin()">Crear Nuevo Usuario</button>
+<!-- Botón para crear nuevo usuario -->
+<button (click)="mostrarFormularioNuevoUsuario()">Nuevo Usuario</button>
 
-<!-- Formulario para crear/editar usuario -->
-<div *ngIf="editandoUsuario">
-  <h3>{{ editandoUsuario.id ? 'Editar Usuario' : 'Nuevo Usuario' }}</h3>
-  <form (ngSubmit)="guardarUsuario()">
+
+<!-- Formulario para crear nuevo usuario -->
+<div *ngIf="isCreating">
+    <h3>Crear Nuevo Usuario</h3>
     <div>
-      <label for="username">Usuario:</label>
-      <input type="text" id="username" [(ngModel)]="editandoUsuario.username" name="username" required minlength="4" />
+        <label for="newUsername">Usuario:</label>
+        <input type="text" id="newUsername" [(ngModel)]="nuevoUsuario.username" name="newUsername" required />
     </div>
     <div>
-      <label for="nombre">Nombre:</label>
-      <input type="text" id="nombre" [(ngModel)]="editandoUsuario.nombre" name="nombre" required />
+        <label for="newPassword">Contraseña:</label>
+        <input type="password" id="newPassword" [(ngModel)]="nuevoUsuario.password" name="newPassword" required />
     </div>
     <div>
-      <label for="rol">Rol:</label>
-      <select [(ngModel)]="editandoUsuario.role" name="rol" required>
-        <option value="ADMIN">ADMIN</option>
-        <option value="USER">USER</option>
-        <option value="COMPRADOR">COMPRADOR</option>
-        <option value="VISITANTE">VISITANTE</option>
-      </select>
+        <label for="confirmNewPassword">Confirmar Contraseña:</label>
+        <input type="password" id="confirmNewPassword" [(ngModel)]="confirmNewPassword" name="confirmNewPassword" required />
     </div>
-    <button type="submit">{{ editandoUsuario.id ? 'Actualizar' : 'Crear' }}</button>
-    <button type="button" (click)="cancelarEdicion()">Cancelar</button>
-  </form>
+    <div>
+        <label for="newNombre">Nombre:</label>
+        <input type="text" id="newNombre" [(ngModel)]="nuevoUsuario.nombre" name="newNombre" required />
+    </div>
+    <div>
+        <label for="newRole">Rol:</label>
+        <select id="newRole" [(ngModel)]="nuevoUsuario.role" name="newRole" required>
+            <option value="ADMIN">ADMIN</option>
+            <option value="USER">USER</option>
+            <option value="COMPRADOR">COMPRADOR</option>
+            <option value="VISITANTE">VISITANTE</option>
+        </select>
+    </div>
+    <button (click)="crearNuevoUsuario()">Crear Usuario</button>
+    <button (click)="resetForm()">Cancelar</button>
+</div>
+
+<!-- Formulario para editar usuario -->
+<div *ngIf="isEditing">
+    <h3>Editar Usuario</h3>
+    <div>
+        <label for="editUsername">Usuario:</label>
+        <input type="text" id="editUsername" [(ngModel)]="nuevoUsuario.username" name="editUsername" required />
+    </div>
+    <div>
+        <label for="editNombre">Nombre:</label>
+        <input type="text" id="editNombre" [(ngModel)]="nuevoUsuario.nombre" name="editNombre" required />
+    </div>
+    <div>
+        <label for="editRole">Rol:</label>
+        <select id="editRole" [(ngModel)]="nuevoUsuario.role" name="editRole" required>
+            <option value="ADMIN">ADMIN</option>
+            <option value="USER">USER</option>
+            <option value="COMPRADOR">COMPRADOR</option>
+            <option value="VISITANTE">VISITANTE</option>
+        </select>
+    </div>
+    <div>
+        <label for="editPassword">Contraseña:</label>
+        <input type="password" id="editPassword" [(ngModel)]="nuevoUsuario.password" name="editPassword" />
+    </div>
+    <button (click)="guardarEdicion()">Guardar Cambios</button>
+    <button (click)="resetForm()">Cancelar</button>
 </div>
 
 <table *ngIf="usuarios.length > 0">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Usuario</th>
-      <th>Nombre</th>
-      <th>Rol</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let user of usuarios">
-      <td>{{ user.id }}</td>
-      <td>{{ user.username }}</td>
-      <td>{{ user.nombre || 'N/A' }}</td>
-      <td>{{ user.role || 'N/A' }}</td>
-      <td>
-        <button (click)="abrirModalEditarUsuario(user)" *ngIf="authService.isAdmin()">Editar</button>
-        <button (click)="eliminarUsuario(user.id!)" *ngIf="authService.isAdmin()" style="background-color: #dc3545;">Eliminar</button>
-        <select *ngIf="authService.isAdmin()" (change)="asignarRol(user.username!, $event)">
-          <option value="">Asignar Rol</option>
-          <option value="ADMIN">ADMIN</option>
-          <option value="USER">USER</option>
-          <option value="COMPRADOR">COMPRADOR</option>
-          <option value="VISITANTE">VISITANTE</option>
-        </select>
-      </td>
-    </tr>
-  </tbody>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Usuario</th>
+            <th>Nombre</th>
+            <th>Rol</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr *ngFor="let user of usuarios">
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.nombre || 'N/A' }}</td>
+            <td>{{ user.role }}</td>
+            <td>
+                <button (click)="editarUsuario(user.id!)">Editar</button>
+                <button (click)="eliminarUsuario(user.id!)" style="background-color: #dc3545;">Eliminar</button>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 <p *ngIf="usuarios.length === 0">No hay usuarios registrados.</p>

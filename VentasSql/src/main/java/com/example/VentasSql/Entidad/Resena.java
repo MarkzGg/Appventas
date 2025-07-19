@@ -3,7 +3,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.example.VentasSql.Model.Producto;
+import com.example.VentasSql.Entidad.Producto;
 import com.example.VentasSql.Entidad.Uuser; 
 
 @Entity
