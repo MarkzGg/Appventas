@@ -20,6 +20,7 @@ export class RegisterComponent {
   password = '';
   confirmPassword = '';
   error = '';
+  successMessage = '';
 
   constructor(private authService: AuthService, private router: Router) {}
 
@@ -41,10 +42,19 @@ export class RegisterComponent {
 
     this.authService.register({ username: this.username, password: this.password })
           .subscribe({
-            next: () => {
-              this.error = ''; // Limpiar cualquier error previo
-              this.router.navigate(['/login']);
-            },
+            next: (response: any) => { // <-- Asegúrate de capturar la respuesta
+          this.error = ''; // Limpiar cualquier error previo
+          // Puedes capturar el mensaje del backend si lo necesitas
+          // this.successMessage = response; // Si el backend devuelve solo el string.
+                                           // Si devuelve un objeto { message: "..." }, sería response.message
+          this.successMessage = 'Usuario creado correctamente.'; // <-- ¡Mensaje de éxito deseado!
+          console.log(this.successMessage); // Para depuración
+
+          // Redirigir después de un breve retraso para que el usuario vea el mensaje
+          setTimeout(() => {
+            this.router.navigate(['/login']);
+          }, 100); // Redirige después de 2 segundos (ajusta el tiempo si es necesario)
+        },
             error: (err: HttpErrorResponse) => { // Capturar el error como HttpErrorResponse
               if (err.status === 409) { // 409 Conflict
                 this.error = err.error; // El cuerpo de la respuesta contiene el mensaje "El nombre de usuario ya existe."

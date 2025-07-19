@@ -29,7 +29,7 @@
   </table>
   <div class="pedido-actions">
     <button (click)="abrirModalDetallePedido(pedido)">Ver Detalle Completo</button>
-    <button (click)="abrirModalPdfBoleta(pedido)">Ver Boleta</button> </div>
+    </div>
 </div>
 
 <app-order-detail-modal
@@ -37,11 +37,5 @@
   [pedido]="selectedPedido"
   [onClose]="cerrarModalDetalle"
 ></app-order-detail-modal>
-
-<app-boleta-pdf-modal
-  *ngIf="showPdfModal && selectedPedido"
-  [pedido]="selectedPedido"
-  (onClose)="cerrarModalPdfBoleta()"
-></app-boleta-pdf-modal>
 
 <p *ngIf="pedidos.length === 0 && !mensaje">No hay pedidos registrados.</p>

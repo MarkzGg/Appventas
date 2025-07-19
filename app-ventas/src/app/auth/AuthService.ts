@@ -17,7 +17,7 @@ export class AuthService {
 
   register(credentials: { username: string; password: string }): Observable<any> {
     // Asumiendo que tu backend tiene un endpoint /registro para usuarios normales
-    return this.http.post(`${environment.apiUrl}/registro-comprador`, credentials);
+    return this.http.post(`${environment.apiUrl}/registro-comprador`, credentials, { responseType: 'text' });
   }
 
   getLoggedInUsername(): string | null {

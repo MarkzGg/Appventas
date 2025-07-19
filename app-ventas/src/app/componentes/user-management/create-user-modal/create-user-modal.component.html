@@ -1,0 +1,39 @@
+<div class="modal-overlay" *ngIf="visible">
+  <div class="modal-content">
+    <h3>Crear Nuevo Usuario</h3>
+
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <div>
+      <label for="newUsername">Usuario:</label>
+      <input type="text" id="newUsername" [(ngModel)]="nuevoUsuario.username" name="newUsername" required />
+    </div>
+    <div>
+      <label for="newPassword">Contraseña:</label>
+      <input type="password" id="newPassword" [(ngModel)]="nuevoUsuario.password" name="newPassword" required />
+    </div>
+    <div>
+      <label for="confirmNewPassword">Confirmar Contraseña:</label>
+      <input type="password" id="confirmNewPassword" [(ngModel)]="confirmPassword" name="confirmNewPassword" required />
+    </div>
+    <div>
+      <label for="newNombre">Nombre:</label>
+      <input type="text" id="newNombre" [(ngModel)]="nuevoUsuario.nombre" name="newNombre" required />
+    </div>
+    <div>
+      <label for="newRole">Rol:</label>
+      <select id="newRole" [(ngModel)]="nuevoUsuario.role" name="newRole" required>
+          <option value="ADMIN">ADMIN</option>
+          <option value="USER">USER</option>
+          <option value="COMPRADOR">COMPRADOR</option>
+          <option value="VISITANTE">VISITANTE</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button (click)="crearUsuario()">Crear Usuario</button>
+      <button (click)="cerrarModal()" class="cancel-button">Cancelar</button>
+    </div>
+  </div>
+</div>

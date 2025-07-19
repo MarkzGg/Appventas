@@ -1,105 +1,86 @@
-package com.example.VentasSql.Service;
+package com.example.VentasSql.Service; // O el paquete que elijas
 
-import com.example.VentasSql.Entidad.Pedido;
-import com.example.VentasSql.Entidad.DetallePedido; // Asegúrate de importar DetallePedido
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.PdfWriter;
+import com.example.VentasSql.Entidad.Boleta;
+import com.example.VentasSql.Entidad.DetalleBoleta;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
 import org.springframework.stereotype.Service;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;    
-import com.lowagie.text.Paragraph;
-import java.awt.Color; 
-import java.math.BigDecimal;
-
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.time.format.DateTimeFormatter; // Para formatear la fecha
+import java.math.BigDecimal;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class BoletaPdfService {
 
-    public byte[] generarPdfBoleta(Pedido pedido) throws IOException, DocumentException {
-        // Usa ByteArrayOutputStream para escribir el PDF en memoria
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-        // 1. Crear el documento
-        Document document = new Document(PageSize.A4); // Tamaño de página A4
-        PdfWriter.getInstance(document, baos);
-
-        document.open(); // Abrir el documento para escribir
-
-        // 2. Definir fuentes y colores
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 24, Color.BLACK);
-        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.DARK_GRAY);
-        Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.BLACK);
-        Font boldFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
-
-        // 3. Agregar encabezado/título de la boleta
-        Paragraph title = new Paragraph("BOLETA DE VENTA", titleFont);
-        title.setAlignment(Element.ALIGN_CENTER);
-        title.setSpacingAfter(20);
-        document.add(title);
-
-        // Información de la empresa (ejemplo)
-        document.add(new Paragraph("Mi Tienda S.A.C.", headerFont));
-        document.add(new Paragraph("RUC: 20XXXXXXXXX", normalFont));
-        document.add(new Paragraph("Dirección: Av. Principal 123, Lima, Perú", normalFont));
-        document.add(new Paragraph("Teléfono: (01) 123 4567", normalFont));
-        document.add(new Paragraph("Email: ventas@mitienda.com", normalFont));
-        document.add(Chunk.NEWLINE); // Salto de línea
-
-        // Información del Pedido y Cliente
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-
-        document.add(new Paragraph("Número de Pedido: " + pedido.getId(), boldFont));
-        document.add(new Paragraph("Fecha y Hora: " + pedido.getFechaPedido().format(formatter), normalFont));
-        document.add(new Paragraph("Cliente: " + pedido.getUsuario().getUsername(), normalFont)); // Asume que Uuser tiene un getUsername()
-        document.add(Chunk.NEWLINE);
-
-        // 4. Detalles del Pedido (Tabla)
-        // Puedes usar PdfPTable si quieres una tabla más avanzada con iText, pero para empezar,
-        // usaremos una tabla simple con Paragraphs.
-        // Para una tabla más robusta: import com.lowagie.text.pdf.PdfPTable;
-        // PdfPTable table = new PdfPTable(4); // 4 columnas: Producto, Cantidad, Precio Unitario, Subtotal
-        // table.setWidthPercentage(100); // Ancho de la tabla al 100% de la página
-
-        document.add(new Paragraph("Detalles del Pedido:", headerFont));
-        document.add(Chunk.NEWLINE);
-
-        // Encabezados de la tabla (simple con texto)
-        document.add(new Paragraph(
-            String.format("%-40s %-10s %-15s %-15s", "Producto", "Cantidad", "P. Unitario", "Subtotal"),
-            boldFont
-        ));
-        document.add(new Paragraph("-------------------------------------------------------------------------------------------------", normalFont));
-
-        for (DetallePedido detalle : pedido.getDetalles()) {
-            document.add(new Paragraph(
-                String.format("%-40s %-10s S/ %-12.2f S/ %-12.2f",
-                    detalle.getProducto().getNombre(),
-                    detalle.getCantidad(),
-                    detalle.getPrecioUnitario(),
-                    detalle.getSubtotalDetalle()),
-                normalFont
-            ));
+    public byte[] generarPdfBoleta(Boleta boleta) throws DocumentException {
+        // Validación básica
+        if (boleta == null) {
+            throw new IllegalArgumentException("La boleta no puede ser nula para generar el PDF.");
         }
-        document.add(new Paragraph("-------------------------------------------------------------------------------------------------", normalFont));
-        document.add(Chunk.NEWLINE);
 
-        // Totales
-        document.add(new Paragraph("Subtotal: S/ " + pedido.getTotal().divide(new BigDecimal("1.18"), 2, java.math.RoundingMode.HALF_UP), boldFont)); // Calcula subtotal sin IGV si el total incluye IGV
-        document.add(new Paragraph("IGV (18%): S/ " + pedido.getTotal().multiply(new BigDecimal("0.18")).divide(new BigDecimal("1.18"), 2, java.math.RoundingMode.HALF_UP), boldFont)); // Calcula IGV
-        document.add(new Paragraph("Total a Pagar: S/ " + pedido.getTotal().setScale(2, java.math.RoundingMode.HALF_UP), titleFont));
-        document.add(Chunk.NEWLINE);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Document document = new Document();
 
-        // Pie de página
-        document.add(new Paragraph("¡Gracias por su compra!", normalFont));
-        document.add(new Paragraph("Este es un documento no tributario válido como boleta de venta.", normalFont));
+        try {
+            PdfWriter.getInstance(document, baos);
+            document.open();
 
+            // Título
+            document.add(new Paragraph("BOLETA DE VENTA"));
+            document.add(new Paragraph("------------------------------------------------------------------"));
+            document.add(new Paragraph("Número de Boleta: " + boleta.getNumeroBoleta()));
+            document.add(new Paragraph("Fecha de Emisión: " + boleta.getFechaEmision().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+            
+            // Asumiendo que Boleta puede tener un usuario asociado
+            if (boleta.getUsuario() != null && boleta.getUsuario().getUsername() != null) {
+                 document.add(new Paragraph("Cliente: " + boleta.getUsuario().getUsername()));
+            } else {
+                 document.add(new Paragraph("Cliente: (No especificado)"));
+            }
 
-        document.close(); // Cerrar el documento
+            document.add(new Paragraph("------------------------------------------------------------------"));
+            document.add(new Paragraph("Detalle de Productos:"));
+            document.add(new Paragraph(" ")); // Espacio
 
-        return baos.toByteArray(); // Devolver el PDF como un array de bytes
+            // Tabla de productos
+            PdfPTable table = new PdfPTable(4); // 4 columnas: Producto, Cantidad, Precio Unitario, Subtotal
+            table.setWidthPercentage(100);
+            table.setSpacingBefore(10f);
+            table.setSpacingAfter(10f);
+
+            // Encabezados de la tabla
+            table.addCell(new PdfPCell(new Phrase("Producto")));
+            table.addCell(new PdfPCell(new Phrase("Cantidad")));
+            table.addCell(new PdfPCell(new Phrase("P. Unitario")));
+            table.addCell(new PdfPCell(new Phrase("Subtotal")));
+
+            // Filas de la tabla
+            for (DetalleBoleta detalle : boleta.getDetalles()) {
+                table.addCell(new PdfPCell(new Phrase(detalle.getProducto().getNombre())));
+                table.addCell(new PdfPCell(new Phrase(String.valueOf(detalle.getCantidad()))));
+                table.addCell(new PdfPCell(new Phrase("S/ " + detalle.getPrecioUnitario().setScale(2, BigDecimal.ROUND_HALF_UP))));
+                table.addCell(new PdfPCell(new Phrase("S/ " + detalle.getSubtotalDetalle().setScale(2, BigDecimal.ROUND_HALF_UP))));
+            }
+            document.add(table);
+
+            // Totales
+            document.add(new Paragraph(" ")); // Espacio
+            document.add(new Paragraph("Subtotal: S/ " + boleta.getSubtotal().setScale(2, BigDecimal.ROUND_HALF_UP)));
+            document.add(new Paragraph("IGV (18%): S/ " + boleta.getIgv().setScale(2, BigDecimal.ROUND_HALF_UP)));
+            document.add(new Paragraph("Total a Pagar: S/ " + boleta.getTotal().setScale(2, BigDecimal.ROUND_HALF_UP)));
+            document.add(new Paragraph("------------------------------------------------------------------"));
+            document.add(new Paragraph("Gracias por su compra!"));
+
+        } finally {
+            document.close();
+        }
+
+        return baos.toByteArray();
     }
 }

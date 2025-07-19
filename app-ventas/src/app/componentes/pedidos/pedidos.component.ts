@@ -1,29 +1,26 @@
 import { Component, OnInit } from '@angular/core';
 import { PedidoService } from 'src/app/model/pedido/pedido.service';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
-import { OrderDetailModalComponent } from './order-detail-modal.component';
+import { OrderDetailModalComponent } from './order-detail-modal.component'; // Mantener este
 import { Boleta } from 'src/app/model/boleta/boleta';
-import { BoletaService } from 'src/app/model/boleta/boleta.service';
-import { BoletaPdfModalComponent } from './boleta-pdf-modal.component'; // ¡Importa el nuevo modal!
-
+// import { BoletaPdfModalComponent } from './boleta-pdf-modal.component'; // ¡ELIMINAR esta importación!
 
 @Component({
   selector: 'app-pedidos',
   templateUrl: './pedidos.component.html',
   styleUrls: ['./pedidos.component.css'],
   standalone: true,
-  imports: [CommonModule, DatePipe, DecimalPipe, OrderDetailModalComponent, BoletaPdfModalComponent]
+  imports: [CommonModule, DatePipe, DecimalPipe, OrderDetailModalComponent] // Eliminar BoletaPdfModalComponent
 })
 export class PedidosComponent implements OnInit {
   pedidos: any[] = [];
   mensaje = '';
-  showModal = false;
-  // selectedPedido: any | null = null;
-  showDetailModal = false; // Renombramos para claridad
-  showPdfModal = false;    // Nuevo estado para el modal de PDF
+  // showModal = false; // Eliminar si no se usa
+  showDetailModal = false;
+  // showPdfModal = false; // ELIMINAR si no se usa
   selectedPedido: Boleta | null = null;
 
-  constructor(private pedidoService: PedidoService, private boletaService: BoletaService) {}
+  constructor(private pedidoService: PedidoService /*, private boletaService: BoletaService*/) {} // ELIMINAR BoletaService si ya no lo usas aquí
 
   ngOnInit(): void {
     this.pedidoService.obtenerHistorial().subscribe({
@@ -32,62 +29,26 @@ export class PedidosComponent implements OnInit {
     });
   }
 
+  // Si 'cerrarModal()' y 'descargarBoletaPdf()' no se usan en PedidosComponent directamente, eliminarlos
+  // cerrarModal(): void { /* ... */ }
+  // descargarBoletaPdf(pedido: Boleta): void { /* ... */ }
+  // generarBoleta(pedido: any): void { /* ... */ }
 
-
-  cerrarModal(): void {
-    this.showModal = false;
-    this.selectedPedido = null;
-  }
-  descargarBoletaPdf(pedido: Boleta): void {
-      if (pedido.id) { // Asumiendo que Boleta tiene un 'id' que corresponde al PedidoId
-          console.log(`Solicitando PDF para la boleta con ID: ${pedido.id}`);
-          this.boletaService.descargarBoletaPdf(pedido.id).subscribe({
-            next: (response: Blob) => {
-              const url = window.URL.createObjectURL(response);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `boleta_pedido_${pedido.id}.pdf`;
-              document.body.appendChild(a);
-              a.click();
-              window.URL.revokeObjectURL(url);
-              this.mensaje = 'PDF de boleta descargado con éxito.';
-            },
-            error: (err) => {
-              console.error('Error al descargar PDF:', err);
-              this.mensaje = 'Error al descargar el PDF de la boleta: ' + (err.error?.error || 'Intente nuevamente.');
-            }
-          });
-      } else {
-          this.mensaje = 'No se encontró ID para descargar la boleta.';
-      }
-      this.cerrarModal(); // Cierra el modal después de la acción
-  }
 
   abrirModalDetallePedido(pedido: Boleta): void {
     this.selectedPedido = pedido;
-    this.showDetailModal = true; // Abre el modal de detalle
+    this.showDetailModal = true;
+    console.log('Estructura de selectedPedido:', JSON.stringify(this.selectedPedido, null, 2));
+    console.log('PEDIDOS COMPONENT: Abrir modal. showDetailModal:', this.showDetailModal, 'selectedPedido:', this.selectedPedido);
   }
 
-  cerrarModalDetalle(): void { // Renombramos para claridad
+  cerrarModalDetalle = () => {
     this.showDetailModal = false;
     this.selectedPedido = null;
-  }
+    console.log('PedidosComponent: Cerrando modal de detalle desde el padre. showDetailModal:', this.showDetailModal);
+  };
 
-  abrirModalPdfBoleta(pedido: Boleta): void { // Nuevo método para abrir el modal de PDF
-    this.selectedPedido = pedido;
-    this.showPdfModal = true;
-  }
-
-  cerrarModalPdfBoleta(): void { // Nuevo método para cerrar el modal de PDF
-    this.showPdfModal = false;
-    this.selectedPedido = null;
-  }
-
-  generarBoleta(pedido: any): void {
-    // Aquí deberías implementar la llamada para generar la boleta desde un pedido
-    // Por ejemplo, podrías llamar a un método en pedidoService o boletaService
-    // Actualmente, solo cerramos el modal y mostramos mensaje
-    this.mensaje = 'Funcionalidad de generar boleta no implementada para pedidos aún.';
-    this.cerrarModal();
-  }
+  // ELIMINAR estos métodos si ya no abres un modal de PDF separado
+  // abrirModalPdfBoleta(pedido: Boleta): void { /* ... */ }
+  // cerrarModalPdfBoleta(): void { /* ... */ }
 }

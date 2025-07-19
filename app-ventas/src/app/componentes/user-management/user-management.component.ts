@@ -4,6 +4,8 @@ import { UsuarioService } from 'src/app/model/usuario/usuario.service';
 import { AuthService } from 'src/app/auth/AuthService';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { CreateUserModalComponent } from './create-user-modal/create-user-modal.component'; // Importar modal de creación
+import { EditUserModalComponent } from './edit-user-modal/edit-user-modal.component';     // ¡Importar el nuevo modal de edición!
 
 @Component({
   selector: 'app-user-management',
@@ -12,23 +14,20 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule
+    FormsModule,
+    CreateUserModalComponent, // Añadir a imports
+    EditUserModalComponent    // ¡Añadir a imports!
   ]
 })
 export class UserManagementComponent implements OnInit {
   usuarios: Usuario[] = [];
   mensaje: string = '';
+  mensajeTipo: 'exito' | 'error' | '' = '';
 
-  nuevoUsuario: Usuario = {
-    username: '',
-    password: '',
-    nombre: '', // Asegúrate de que el nombre esté aquí
-    role: 'COMPRADOR'
-  };
-  confirmNewPassword = '';
-    isCreating: boolean = false; // Variable para controlar la visibilidad del formulario de creación
-    isEditing: boolean = false; // Variable para controlar la visibilidad del formulario de edición
-
+  // Propiedades para controlar los modales
+  showCreateUserModal: boolean = false; // Controla el modal de creación
+  showEditUserModal: boolean = false;   // ¡NUEVO! Controla el modal de edición
+  selectedUser: Usuario | null = null;  // ¡NUEVO! Almacena el usuario a editar
 
   constructor(
     private usuarioService: UsuarioService,
@@ -41,77 +40,86 @@ export class UserManagementComponent implements OnInit {
 
   loadUsers(): void {
     this.usuarioService.listarUsuarios().subscribe({
-      next: (data) => this.usuarios = data,
-      error: (err) => this.mensaje = 'Error al cargar usuarios: ' + (err.error || err.message)
+      next: (data) => {
+        this.usuarios = data;
+        // Opcional: limpiar el mensaje si la carga es exitosa después de una operación
+        // this.mensaje = '';
+        // this.mensajeTipo = '';
+      },
+      error: (err) => {
+        this.mensaje = 'Error al cargar usuarios: ' + (err.error?.message || err.message);
+        this.mensajeTipo = 'error';
+      }
     });
   }
 
-     crearNuevoUsuario(): void {
-       this.mensaje = '';
+  // Lógica para el modal de CREACIÓN
+  mostrarFormularioNuevoUsuario(): void {
+    this.mensaje = ''; // Limpiar mensaje de la tabla principal
+    this.mensajeTipo = '';
+    this.showCreateUserModal = true;
+  }
 
-       if (!this.nuevoUsuario.username || !this.nuevoUsuario.password || !this.nuevoUsuario.nombre || !this.nuevoUsuario.role) {
-           this.mensaje = 'Todos los campos son obligatorios.';
-           return;
-       }
+  onCloseCreateUserModal(): void {
+    this.showCreateUserModal = false;
+  }
 
-       if (this.nuevoUsuario.password !== this.confirmNewPassword) {
-           this.mensaje = 'Las contraseñas no coinciden.';
-           return;
-       }
+  onUserCreated(message: string): void {
+    this.mensaje = message;
+    this.mensajeTipo = 'exito';
+    this.loadUsers(); // Recargar la lista para ver el nuevo usuario
+    setTimeout(() => { this.mensaje = ''; this.mensajeTipo = ''; }, 3000);
+  }
 
-       this.usuarioService.crearUsuario(this.nuevoUsuario).subscribe({
-           next: (res) => {
-               this.mensaje = 'Usuario creado con éxito.';
-                this.loadUsers();
-                this.resetForm();
-           },
-           error: (err) => {
-               this.mensaje = 'Error al crear usuario: ' + (err.error || err.message);
-           }
-       });
-   }
-
-
+  // Lógica para el modal de EDICIÓN
   editarUsuario(id: number): void {
-        const usuarioAEditar = this.usuarios.find(user => user.id === id);
-        if (usuarioAEditar) {
-            this.nuevoUsuario = { ...usuarioAEditar }; // Cargar los datos del usuario en el formulario
-            this.isEditing = true; // Activar el modo de edición
-        }
+    const userToEdit = this.usuarios.find(user => user.id === id);
+    if (userToEdit) {
+      this.selectedUser = { ...userToEdit }; // Copia profunda para no modificar el original directamente
+      this.mensaje = ''; // Limpiar mensaje de la tabla principal
+      this.mensajeTipo = '';
+      this.showEditUserModal = true; // Mostrar el modal de edición
     }
-guardarEdicion(): void {
-        this.usuarioService.editarUsuario(this.nuevoUsuario).subscribe({
-            next: () => {
-                this.mensaje = 'Usuario actualizado con éxito.';
-                this.loadUsers(); // Recargar la lista de usuarios
-                this.resetForm();
-            },
-            error: (err) => {
-                this.mensaje = 'Error al actualizar usuario: ' + (err.error || err.message);
-            }
-        });
-    }
-    resetForm(): void {
-        this.nuevoUsuario = { username: '', password: '', nombre: '', role: 'COMPRADOR' };
-        this.confirmNewPassword = '';
-        this.isCreating = false; // Ocultar el formulario de creación
-        this.isEditing = false; // Ocultar el formulario de edición
-         this.mensaje = '';
-    }
-    mostrarFormularioNuevoUsuario() {
-  this.resetForm();
-  this.isCreating = true;
-}
+  }
 
+  onCloseEditUserModal(): void {
+    this.showEditUserModal = false;
+    this.selectedUser = null; // Limpiar el usuario seleccionado
+  }
+
+  onUserEdited(message: string): void {
+    this.mensaje = message;
+    this.mensajeTipo = 'exito';
+    this.loadUsers(); // Recargar la lista para ver los cambios
+    setTimeout(() => { this.mensaje = ''; this.mensajeTipo = ''; }, 3000);
+  }
+
+  // El método 'guardarEdicion()' y 'resetForm()' que manejaban la edición directa ya no son necesarios
+  // porque la lógica se mueve al 'EditUserModalComponent'. Puedes eliminarlos si no tienen otro uso.
+  /*
+  guardarEdicion(): void {
+      // Lógica de edición se mueve a EditUserModalComponent
+  }
+  resetForm(): void {
+      // Lógica de reseteo se mueve a EditUserModalComponent
+  }
+  */
 
   eliminarUsuario(id: number): void {
     if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
       this.usuarioService.eliminarUsuario(id).subscribe({
         next: () => {
           this.mensaje = 'Usuario eliminado con éxito.';
+          this.mensajeTipo = 'exito';
           this.loadUsers();
+          setTimeout(() => { this.mensaje = ''; this.mensajeTipo = ''; }, 3000);
         },
-        error: (err) => this.mensaje = 'Error al eliminar usuario: ' + (err.error || err.message)
+        error: (err) => {
+          this.mensaje = 'Error al eliminar usuario: ' + (err.error?.message || err.message);
+          this.mensajeTipo = 'error';
+          console.error('Error al eliminar usuario:', err);
+          setTimeout(() => { this.mensaje = ''; this.mensajeTipo = ''; }, 5000);
+        }
       });
     }
   }
@@ -120,9 +128,14 @@ guardarEdicion(): void {
     this.usuarioService.asignarRol(username, role).subscribe({
       next: () => {
         this.mensaje = `Rol de ${username} actualizado a ${role}.`;
+        this.mensajeTipo = 'exito';
         this.loadUsers();
+        setTimeout(() => { this.mensaje = ''; this.mensajeTipo = ''; }, 3000);
       },
-      error: (err) => this.mensaje = 'Error al asignar rol: ' + (err.error || err.message)
+      error: (err) => {
+        this.mensaje = 'Error al asignar rol: ' + (err.error?.message || err.message);
+        this.mensajeTipo = 'error';
+      }
     });
   }
 }

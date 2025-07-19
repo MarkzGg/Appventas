@@ -8,9 +8,15 @@ import com.example.VentasSql.Entidad.Producto;
 import com.example.VentasSql.Repository.BoletaRepository;
 import com.example.VentasSql.Repository.DetalleBoletaRepository;
 import com.example.VentasSql.Repository.ProductoRepository;
+import com.example.VentasSql.Repository.UserRepository;
+import java.security.Principal;
+import com.example.VentasSql.Service.BoletaPdfService; // Importa tu nuevo servicio de PDF
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType; // Importa MediaType
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +27,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.example.VentasSql.Repository.UserRepository;
+import org.springframework.web.bind.annotation.CrossOrigin; // Importa CrossOrigin
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.Principal;
@@ -35,19 +42,22 @@ import java.util.Map;
 @RestController
 @RequestMapping("/boletas")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:4200") // ¡IMPORTANTE! Asegúrate de que esta anotación esté aquí
 public class BoletaController {
 
     private final BoletaRepository boletaRepository;
     private final ProductoRepository productoRepository;
     private final DetalleBoletaRepository detalleBoletaRepository;
     private final UserRepository userRepository;
+    private final BoletaPdfService boletaPdfService; // Inyecta el servicio de PDF
 
-    private static final BigDecimal IGV_RATE = new BigDecimal("0.18"); 
+    private static final BigDecimal IGV_RATE = new BigDecimal("0.18");
 
     @PostMapping("/generar")
     @PreAuthorize("permitAll()") // Accesible por USER y ADMIN
-    @Transactional 
-    public ResponseEntity<?> generarBoleta(@Valid @RequestBody List<PedidoRequest> pedidos) {
+    @Transactional
+    
+    public ResponseEntity<?> generarBoleta(@Valid @RequestBody List<PedidoRequest> pedidos, Principal principal) {
         try {
             if (pedidos == null || pedidos.isEmpty()) {
                 return ResponseEntity.badRequest().body("La lista de pedidos no puede estar vacía.");
@@ -113,36 +123,38 @@ public class BoletaController {
             boleta.setTotal(totalGeneral);
             boleta.setDetalles(detallesBoleta);
 
+            // >>> ASIGNAR EL USUARIO A LA BOLETA <<<
+            // Necesitas el usuario logueado para asignar la boleta al comprador
+            // Si el usuario siempre está autenticado al generar una boleta, puedes usar Principal.
+            // Si no, debes pasar el ID de usuario en el PedidoRequest o de alguna otra forma.
+            // Ejemplo usando Principal:
+            if (principal != null) {
+                Uuser usuario = userRepository.findByUsername(principal.getName())
+                                              .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado."));
+                boleta.setUsuario(usuario);
+            } else {
+                // Manejo de caso donde no hay Principal (ej. para pruebas o si permites compras como invitado)
+                // Podrías asignar un usuario por defecto o requerir que el usuario esté logueado
+                System.err.println("Advertencia: Boleta generada sin usuario autenticado.");
+            }
+            // <<< FIN ASIGNAR USUARIO >>>
+
             boletaRepository.save(boleta);
 
-            StringBuilder mensajeBoleta = new StringBuilder();
-            mensajeBoleta.append("--- BOLETA DE VENTA ---\n");
-            mensajeBoleta.append("Número de Boleta: ").append(boleta.getNumeroBoleta()).append("\n");
-            mensajeBoleta.append("Fecha de Emisión: ").append(boleta.getFechaEmision()).append("\n\n");
-            mensajeBoleta.append("Detalle de Productos:\n");
-
             for (DetalleBoleta detalle : detallesBoleta) {
-                detalle.setBoleta(boleta); 
-                detalleBoletaRepository.save(detalle); 
+                detalle.setBoleta(boleta);
+                detalleBoletaRepository.save(detalle);
 
                 // Actualizar stock del producto
                 Producto producto = detalle.getProducto();
                 producto.setStock(producto.getStock() - detalle.getCantidad());
                 productoRepository.save(producto);
-
-                mensajeBoleta.append("- ").append(producto.getNombre())
-                        .append(" (x").append(detalle.getCantidad()).append("): ")
-                        .append(detalle.getPrecioUnitario()).append(" c/u - Subtotal: ")
-                        .append(detalle.getSubtotalDetalle().setScale(2, RoundingMode.HALF_UP)).append("\n");
             }
 
-            mensajeBoleta.append("\n");
-            mensajeBoleta.append("Subtotal: S/ ").append(boleta.getSubtotal()).append("\n");
-            mensajeBoleta.append("IGV (18%): S/ ").append(boleta.getIgv()).append("\n");
-            mensajeBoleta.append("Total a Pagar: S/ ").append(boleta.getTotal()).append("\n");
-            mensajeBoleta.append("-----------------------\n");
-
-            return ResponseEntity.ok(java.util.Map.of("message", mensajeBoleta.toString()));
+            // Aquí se devuelve un mensaje de confirmación, no el PDF
+            StringBuilder mensajeBoleta = new StringBuilder();
+            mensajeBoleta.append("Boleta generada con éxito. Número de Boleta: ").append(boleta.getNumeroBoleta());
+            return ResponseEntity.ok(java.util.Map.of("message", mensajeBoleta.toString(), "boletaId", boleta.getId()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of("error", "Error al generar la boleta: " + e.getMessage()));
         }
@@ -150,15 +162,20 @@ public class BoletaController {
 
     private String generarSiguienteNumeroBoleta() {
         Boleta ultimaBoleta = boletaRepository.findTopByOrderByFechaEmisionDesc();
-        int ultimoNumero = 0;
+        String ultimoNumeroStr = null;
         if (ultimaBoleta != null && ultimaBoleta.getNumeroBoleta() != null) {
+            ultimoNumeroStr = ultimaBoleta.getNumeroBoleta().replaceAll("[^\\d]", ""); // Extraer solo dígitos
+        }
+        int ultimoNumero = 0;
+        if (ultimoNumeroStr != null && !ultimoNumeroStr.isEmpty()) {
             try {
-                ultimoNumero = Integer.parseInt(ultimaBoleta.getNumeroBoleta());
+                ultimoNumero = Integer.parseInt(ultimoNumeroStr);
             } catch (NumberFormatException e) {
                 System.err.println("Error al parsear el número de boleta: " + ultimaBoleta.getNumeroBoleta());
             }
         }
-        return String.format("%04d", ultimoNumero + 1);
+        // Asumiendo que el formato es "BOLETA-XXXX"
+        return String.format("BOLETA-%05d", ultimoNumero + 1); // Formato de 5 dígitos
     }
 
     @GetMapping("/historial")
@@ -169,6 +186,7 @@ public class BoletaController {
         List<Boleta> historial = boletaRepository.findByUsuario(usuario);
         return ResponseEntity.ok(historial);
     }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
@@ -186,6 +204,39 @@ public class BoletaController {
             return ResponseEntity.ok("Boleta eliminada correctamente. El stock de los productos ha sido revertido.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar la boleta: " + e.getMessage());
+        }
+    }
+
+    // >>> NUEVO ENDPOINT PARA DESCARGAR PDF <<<
+    @GetMapping("/{id}/pdf") // Este es el endpoint que tu frontend de Angular está llamando
+    @PreAuthorize("hasAnyRole('COMPRADOR', 'ADMIN')") // Permite acceso a compradores y administradores
+    @Transactional
+    public ResponseEntity<InputStreamResource> descargarBoletaPdf(@PathVariable Long id) {
+        try {
+            // 1. Buscar la boleta por ID
+            Boleta boleta = boletaRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Boleta con ID " + id + " no encontrada."));
+
+            // 2. Generar el PDF usando el servicio
+            byte[] pdfBytes = boletaPdfService.generarPdfBoleta(boleta);
+
+            // 3. Preparar la respuesta HTTP para el PDF
+            ByteArrayInputStream bis = new ByteArrayInputStream(pdfBytes);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=boleta_" + boleta.getNumeroBoleta() + ".pdf");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(new InputStreamResource(bis));
+
+        } catch (RuntimeException e) { // Captura si la boleta no se encuentra
+            System.err.println("Error al descargar PDF: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // Devuelve 404
+        } catch (Exception e) { // Captura otros errores (ej. al generar el PDF)
+            e.printStackTrace(); // Imprime la traza completa del error en la consola del servidor
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null); // Devuelve 500
         }
     }
 }

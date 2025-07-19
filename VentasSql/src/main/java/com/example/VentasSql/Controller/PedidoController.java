@@ -124,7 +124,7 @@ public class PedidoController {
     }
 
     @GetMapping("/historial")
-    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    @PreAuthorize("hasAnyRole('COMPRADOR','ADMIN', 'USER')")
     public ResponseEntity<List<PedidoDto>> obtenerHistorialPedidos(Principal principal) {
         Uuser usuario = userRepository.findByUsername(principal.getName())
                                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
@@ -139,28 +139,28 @@ public class PedidoController {
         return ResponseEntity.ok(historialDto);
     }
     // Ejemplo en PedidoController.java (o BoletaController)
-@GetMapping("/pdf/{pedidoId}")
-public ResponseEntity<byte[]> generarPdfBoleta(@PathVariable Long pedidoId) {
-    try {
-        // 1. Buscar el pedido por ID
-        Pedido pedido = pedidoRepository.findById(pedidoId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+// @GetMapping("/pdf/{pedidoId}")
+// public ResponseEntity<byte[]> generarPdfBoleta(@PathVariable Long pedidoId) {
+//     try {
+//         // 1. Buscar el pedido por ID
+//         Pedido pedido = pedidoRepository.findById(pedidoId)
+//             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
 
-        // 2. Lógica para generar el PDF (esto es solo un placeholder)
-        byte[] pdfContents = boletaPdfService.generarPdfBoleta(pedido);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        String filename = "boleta_" + pedidoId + ".pdf";
-        headers.setContentDispositionFormData("attachment", filename); // Para que el navegador lo descargue
+//         // 2. Lógica para generar el PDF (esto es solo un placeholder)
+//         byte[] pdfContents = boletaPdfService.generarPdfBoleta(pedido);
+//         HttpHeaders headers = new HttpHeaders();
+//         headers.setContentType(MediaType.APPLICATION_PDF);
+//         String filename = "boleta_" + pedidoId + ".pdf";
+//         headers.setContentDispositionFormData("attachment", filename); // Para que el navegador lo descargue
 
-        return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+//         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
 
-    } catch (Exception e) {
-        // Manejo de errores
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                             .body(("Error al generar el PDF: " + e.getMessage()).getBytes());
-    }
-}
+//     } catch (Exception e) {
+//         // Manejo de errores
+//         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                              .body(("Error al generar el PDF: " + e.getMessage()).getBytes());
+//     }
+// }
 // Necesitarás implementar la función generarContenidoPdf(Pedido pedido)
 // que use una librería de PDF para crear el archivo.
 }

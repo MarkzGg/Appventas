@@ -16,17 +16,17 @@ export class UsuarioService {
     return this.http.get<Usuario[]>(`${this.baseUrl}/listar`);
   }
 
-   crearUsuario(usuario: Usuario): Observable<Usuario> {
-       return this.http.post<Usuario>(`${environment.apiUrl}/admin/registro-usuario`, usuario);
+   crearUsuario(usuario: Usuario): Observable<String> {
+       return this.http.post(`${environment.apiUrl}/admin/registro-usuario`, usuario, { responseType: 'text' });
    }
 
-  editarUsuario(usuario: Usuario): Observable<Usuario> {
-    return this.http.put<Usuario>(`${environment.apiUrl}/admin/editar-usuario/${usuario.id}`, usuario);
-}
+  editarUsuario(usuario: Usuario): Observable<String> {
+    return this.http.put(`${this.baseUrl}/${usuario.id}`, usuario, { responseType: 'text' });
+ }
 
 
   eliminarUsuario(id: number) {
-    return this.http.delete(`${this.baseUrl}/${id}`);
+    return this.http.delete(`${this.baseUrl}/${id}`, { responseType: 'text' });
   }
 
   asignarRol(username: string, rol: string) {

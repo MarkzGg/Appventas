@@ -4,9 +4,14 @@ import { Boleta } from './boleta';
 import { PedidoRequest } from '../pedido-request/pedido-request';
 import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
+import { HttpHeaders } from '@angular/common/http';
+
 
 @Injectable({ providedIn: 'root' })
 export class BoletaService {
+  private apiUrl = `${environment.apiUrl}/boletas`;
+
+  
   private baseUrl = `${environment.apiUrl}/boletas`;
 
   constructor(private http: HttpClient) {}
@@ -19,8 +24,17 @@ export class BoletaService {
   obtenerHistorial() {
     return this.http.get<Boleta[]>(`${this.baseUrl}/historial`);
   }
-  descargarBoletaPdf(pedidoId: number): Observable<Blob> {
-    // Aquí el responseType es 'blob' porque esperamos un archivo binario (PDF)
-    return this.http.get(`${this.baseUrl}/pdf/${pedidoId}`, { responseType: 'blob' });
+  descargarBoletaPdf(boletaId: number): Observable<Blob> {
+    // Es crucial que el responseType sea 'blob' para manejar correctamente el archivo binario.
+    // Si tu backend requiere algún encabezado (ej. token de autenticación), añádelo aquí.
+    const headers = new HttpHeaders({
+      // 'Authorization': 'Bearer ' + tuTokenDeAutenticacion, // Ejemplo si usas token
+      'Accept': 'application/pdf' // Indica que esperas un PDF
+    });
+
+    return this.http.get(`${this.apiUrl}/${boletaId}/pdf`, {
+      responseType: 'blob', // MUY IMPORTANTE: para recibir el archivo binario
+      headers: headers
+    });
   }
 }

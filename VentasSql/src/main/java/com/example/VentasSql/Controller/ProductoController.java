@@ -46,7 +46,7 @@ public class ProductoController {
 
     // PUT /productos/{id} - Actualizar un producto completo
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede actualizar productos completos
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')") // Solo ADMIN puede actualizar productos completos
     public ResponseEntity<Producto> updateProducto(@PathVariable Long id, @RequestBody Producto productoDetails) {
         Producto updatedProducto = productoService.updateProducto(id, productoDetails);
         return updatedProducto != null ?

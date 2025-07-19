@@ -1,70 +1,23 @@
 <h2>Gestión de Usuarios</h2>
 
-<div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
+<div *ngIf="mensaje" class="mensaje" [ngClass]="{'exito': mensajeTipo === 'exito', 'error': mensajeTipo === 'error'}">
+  {{ mensaje }}
+</div>
 
-<!-- Botón para crear nuevo usuario -->
 <button (click)="mostrarFormularioNuevoUsuario()">Nuevo Usuario</button>
 
+<app-create-user-modal
+  [visible]="showCreateUserModal"
+  (close)="onCloseCreateUserModal()"
+  (userCreated)="onUserCreated($event)">
+</app-create-user-modal>
 
-<!-- Formulario para crear nuevo usuario -->
-<div *ngIf="isCreating">
-    <h3>Crear Nuevo Usuario</h3>
-    <div>
-        <label for="newUsername">Usuario:</label>
-        <input type="text" id="newUsername" [(ngModel)]="nuevoUsuario.username" name="newUsername" required />
-    </div>
-    <div>
-        <label for="newPassword">Contraseña:</label>
-        <input type="password" id="newPassword" [(ngModel)]="nuevoUsuario.password" name="newPassword" required />
-    </div>
-    <div>
-        <label for="confirmNewPassword">Confirmar Contraseña:</label>
-        <input type="password" id="confirmNewPassword" [(ngModel)]="confirmNewPassword" name="confirmNewPassword" required />
-    </div>
-    <div>
-        <label for="newNombre">Nombre:</label>
-        <input type="text" id="newNombre" [(ngModel)]="nuevoUsuario.nombre" name="newNombre" required />
-    </div>
-    <div>
-        <label for="newRole">Rol:</label>
-        <select id="newRole" [(ngModel)]="nuevoUsuario.role" name="newRole" required>
-            <option value="ADMIN">ADMIN</option>
-            <option value="USER">USER</option>
-            <option value="COMPRADOR">COMPRADOR</option>
-            <option value="VISITANTE">VISITANTE</option>
-        </select>
-    </div>
-    <button (click)="crearNuevoUsuario()">Crear Usuario</button>
-    <button (click)="resetForm()">Cancelar</button>
-</div>
+<app-edit-user-modal
+  [visible]="showEditUserModal"
+  [usuarioOriginal]="selectedUser" (close)="onCloseEditUserModal()"
+  (userEdited)="onUserEdited($event)">
+</app-edit-user-modal>
 
-<!-- Formulario para editar usuario -->
-<div *ngIf="isEditing">
-    <h3>Editar Usuario</h3>
-    <div>
-        <label for="editUsername">Usuario:</label>
-        <input type="text" id="editUsername" [(ngModel)]="nuevoUsuario.username" name="editUsername" required />
-    </div>
-    <div>
-        <label for="editNombre">Nombre:</label>
-        <input type="text" id="editNombre" [(ngModel)]="nuevoUsuario.nombre" name="editNombre" required />
-    </div>
-    <div>
-        <label for="editRole">Rol:</label>
-        <select id="editRole" [(ngModel)]="nuevoUsuario.role" name="editRole" required>
-            <option value="ADMIN">ADMIN</option>
-            <option value="USER">USER</option>
-            <option value="COMPRADOR">COMPRADOR</option>
-            <option value="VISITANTE">VISITANTE</option>
-        </select>
-    </div>
-    <div>
-        <label for="editPassword">Contraseña:</label>
-        <input type="password" id="editPassword" [(ngModel)]="nuevoUsuario.password" name="editPassword" />
-    </div>
-    <button (click)="guardarEdicion()">Guardar Cambios</button>
-    <button (click)="resetForm()">Cancelar</button>
-</div>
 
 <table *ngIf="usuarios.length > 0">
     <thead>

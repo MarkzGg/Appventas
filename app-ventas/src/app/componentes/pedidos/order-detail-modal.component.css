@@ -1,0 +1,21 @@
+/* Asegúrate de que tus estilos CSS usen .modal-overlay en lugar de .modal-backdrop */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000; /* Asegura que esté por encima de otros elementos */
+  display: flex; /* Para centrar el modal-content */
+  justify-content: center;
+  align-items: center;
+}
+.modal-content {
+  background: white;
+  padding: 20px;
+  z-index: 1001; /* Debe ser mayor que el overlay */
+  max-width: 600px;
+  width: 90%;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  /* Si usaste transform: translate(-50%, -50%); antes, con display: flex en el overlay ya no es estrictamente necesario,
+     pero no hace daño si lo tenías. */
+}

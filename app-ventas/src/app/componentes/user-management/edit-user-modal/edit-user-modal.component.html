@@ -1,0 +1,35 @@
+<div class="modal-overlay" *ngIf="visible">
+  <div class="modal-content">
+    <h3>Editar Usuario</h3>
+
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <div>
+      <label for="editUsername">Usuario:</label>
+      <input type="text" id="editUsername" [(ngModel)]="usuarioEditado.username" name="editUsername" required [disabled]="true" />
+      </div>
+    <div>
+      <label for="editNombre">Nombre:</label>
+      <input type="text" id="editNombre" [(ngModel)]="usuarioEditado.nombre" name="editNombre" required />
+    </div>
+    <div>
+      <label for="editRole">Rol:</label>
+      <select id="editRole" [(ngModel)]="usuarioEditado.role" name="editRole" required>
+          <option value="ADMIN">ADMIN</option>
+          <option value="USER">USER</option>
+          <option value="COMPRADOR">COMPRADOR</option>
+          <option value="VISITANTE">VISITANTE</option>
+      </select>
+    </div>
+    <div>
+      <label for="editPassword">Contraseña:</label>
+      <input type="password" id="editPassword" [(ngModel)]="usuarioEditado.password" name="editPassword" placeholder="Dejar en blanco para no cambiar" />
+    </div>
+    <div class="modal-actions">
+      <button (click)="guardarCambios()">Guardar Cambios</button>
+      <button (click)="cerrarModal()" class="cancel-button">Cancelar</button>
+    </div>
+  </div>
+</div>
