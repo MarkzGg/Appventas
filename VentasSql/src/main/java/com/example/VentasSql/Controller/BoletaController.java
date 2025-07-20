@@ -179,7 +179,7 @@ public class BoletaController {
     }
 
     @GetMapping("/historial")
-    @PreAuthorize("hasAnyRole('COMPRADOR')")
+    @PreAuthorize("hasAnyRole('COMPRADOR', 'ADMIN','USER')")
     @Transactional
     public ResponseEntity<?> obtenerHistorialBoletas(Principal principal) {
         Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();

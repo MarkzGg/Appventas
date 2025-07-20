@@ -1,12 +1,12 @@
 FROM maven:3.9.6-eclipse-temurin-21 AS build
-WORKDIR /app
+WORKDIR /app 
 COPY pom.xml .
 RUN mvn dependency:go-offline
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn package -DskipTests
 
 FROM openjdk:21-jdk-slim
 WORKDIR /app
-COPY --from=build /app/target/VentasSql-*.jar app.jar
-EXPOSE 3000
+COPY --from=build /app/target/VentasSql*.jar app.jar
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
