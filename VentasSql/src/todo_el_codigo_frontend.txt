@@ -1,0 +1,374 @@
+
+
+----- ARCHIVO: D:\Universidad_UTP\Desarrollo Web Integrado\Proyectofinal\App-VentaOnline\VentasSql\src\main\java\com\example\VentasSql\Paginas\newindex.html -----
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Ventas - Frontend HTML/JS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            @apply bg-gray-100 text-gray-800;
+        }
+        .container {
+            @apply max-w-6xl mx-auto p-6;
+        }
+        .card {
+            @apply bg-white rounded-lg shadow-md p-6 mb-6;
+        }
+        .input-group {
+            @apply mb-4;
+        }
+        .input-group label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .input-group input, .input-group select, .input-group textarea {
+            @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm;
+        }
+        .btn {
+            @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+        }
+        .btn-secondary {
+            @apply bg-gray-600 hover:bg-gray-700;
+        }
+        .btn-danger {
+            @apply bg-red-600 hover:bg-red-700;
+        }
+        .result-area {
+            @apply bg-gray-50 p-4 rounded-md mt-4 overflow-auto max-h-96;
+            white-space: pre-wrap; /* Para preservar saltos de línea en la respuesta */
+        }
+        .section-title {
+            @apply text-2xl font-bold text-indigo-700 mb-4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-extrabold text-center text-indigo-800 mb-8">Sistema de Ventas Frontend</h1>
+
+        <div class="card">
+            <h2 class="section-title">Autenticación</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-xl font-semibold mb-3">Registrar Usuario (Público)</h3>
+                    <div class="input-group">
+                        <label for="regUsername">Usuario:</label>
+                        <input type="text" id="regUsername" class="w-full">
+                    </div>
+                    <div class="input-group">
+                        <label for="regPassword">Contraseña:</label>
+                        <input type="password" id="regPassword" class="w-full">
+                    </div>
+                    <button id="registerBtn" class="btn">Registrar</button>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-3">Registrar Usuario (Admin)</h3>
+                    <p class="text-sm text-gray-600 mb-2">Requiere token de ADMIN.</p>
+                    <div class="input-group">
+                        <label for="adminRegUsername">Usuario:</label>
+                        <input type="text" id="adminRegUsername" class="w-full">
+                    </div>
+                    <div class="input-group">
+                        <label for="adminRegPassword">Contraseña:</label>
+                        <input type="password" id="adminRegPassword" class="w-full">
+                    </div>
+                    <div class="input-group">
+                        <label for="adminRegRole">Rol:</label>
+                        <select id="adminRegRole" class="w-full">
+                            <option value="USER">USER</option>
+                            <option value="ADMIN">ADMIN</option>
+                        </select>
+                    </div>
+                    <button id="adminRegisterBtn" class="btn btn-secondary">Registrar (Admin)</button>
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+
+            <div>
+                <h3 class="text-xl font-semibold mb-3">Iniciar Sesión</h3>
+                <div class="input-group">
+                    <label for="loginUsername">Usuario:</label>
+                    <input type="text" id="loginUsername" class="w-full">
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Contraseña:</label>
+                    <input type="password" id="loginPassword" class="w-full">
+                </div>
+                <button id="loginBtn" class="btn">Iniciar Sesión</button>
+                <p class="mt-2 text-sm text-gray-600">Token JWT actual: <span id="jwtTokenDisplay" class="font-mono text-indigo-700 break-all">No token</span></p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Gestión de Productos</h2>
+
+            <h3 class="text-xl font-semibold mb-3">Crear Producto (Solo ADMIN)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="input-group">
+                    <label for="prodName">Nombre:</label>
+                    <input type="text" id="prodName">
+                </div>
+                <div class="input-group">
+                    <label for="prodStock">Stock:</label>
+                    <input type="number" id="prodStock">
+                </div>
+                <div class="input-group">
+                    <label for="prodDesc">Descripción:</label>
+                    <input type="text" id="prodDesc">
+                </div>
+                <div class="input-group">
+                    <label for="prodPrice">Precio:</label>
+                    <input type="number" step="0.01" id="prodPrice">
+                </div>
+            </div>
+            <button id="createProductBtn" class="btn">Crear Producto</button>
+
+            <hr class="my-6 border-gray-200">
+
+            <h3 class="text-xl font-semibold mb-3">Actualizar Producto (Solo ADMIN)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="input-group">
+                    <label for="updateProdId">ID:</label>
+                    <input type="number" id="updateProdId">
+                </div>
+                <div class="input-group">
+                    <label for="updateProdName">Nombre:</label>
+                    <input type="text" id="updateProdName">
+                </div>
+                <div class="input-group">
+                    <label for="updateProdStock">Stock:</label>
+                    <input type="number" id="updateProdStock">
+                </div>
+                <div class="input-group">
+                    <label for="updateProdDesc">Descripción:</label>
+                    <input type="text" id="updateProdDesc">
+                </div>
+                <div class="input-group">
+                    <label for="updateProdPrice">Precio:</label>
+                    <input type="number" step="0.01" id="updateProdPrice">
+                </div>
+            </div>
+            <button id="updateProductBtn" class="btn">Actualizar Producto</button>
+
+            <hr class="my-6 border-gray-200">
+
+            <h3 class="text-xl font-semibold mb-3">Actualizar Stock (USER/ADMIN)</h3>
+            <div class="input-group">
+                <label for="updateStockId">ID Producto:</label>
+                <input type="number" id="updateStockId">
+            </div>
+            <div class="input-group">
+                <label for="newStockValue">Nuevo Stock:</label>
+                <input type="number" id="newStockValue">
+            </div>
+            <button id="updateStockBtn" class="btn">Actualizar Stock</button>
+
+            <hr class="my-6 border-gray-200">
+
+            <h3 class="text-xl font-semibold mb-3">Actualizar Precio (USER/ADMIN)</h3>
+            <div class="input-group">
+                <label for="updatePriceId">ID Producto:</label>
+                <input type="number" id="updatePriceId">
+            </div>
+            <div class="input-group">
+                <label for="newPriceValue">Nuevo Precio:</label>
+                <input type="number" step="0.01" id="newPriceValue">
+            </div>
+            <button id="updatePriceBtn" class="btn">Actualizar Precio</button>
+
+            <hr class="my-6 border-gray-200">
+
+            <h3 class="text-xl font-semibold mb-3">Eliminar Producto (Solo ADMIN)</h3>
+            <div class="input-group">
+                <label for="deleteProdId">ID Producto:</label>
+                <input type="number" id="deleteProdId">
+            </div>
+            <button id="deleteProductBtn" class="btn btn-danger">Eliminar Producto</button>
+
+            <hr class="my-6 border-gray-200">
+
+            <h3 class="text-xl font-semibold mb-3">Listar Productos (USER/ADMIN)</h3>
+            <button id="listProductsBtn" class="btn">Listar Todos</button>
+            <button id="listLowStockProductsBtn" class="btn btn-secondary ml-4">Listar Bajo Stock</button>
+
+            <hr class="my-6 border-gray-200">
+
+            <h3 class="text-xl font-semibold mb-3">Obtener Producto por ID (USER/ADMIN)</h3>
+            <div class="input-group">
+                <label for="getProductById">ID Producto:</label>
+                <input type="number" id="getProductById">
+            </div>
+            <button id="getProductByIdBtn" class="btn">Obtener Producto</button>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Generación de Boletas (USER/ADMIN)</h2>
+            <p class="text-sm text-gray-600 mb-3">Introduce los productos como un array de objetos JSON. Ejemplo: <code>[{"productoId": 1, "cantidad": 2}, {"productoId": 2, "cantidad": 1}]</code></p>
+            <div class="input-group">
+                <label for="invoiceProductsJson">Productos (JSON):</label>
+                <textarea id="invoiceProductsJson" rows="5" class="w-full" placeholder='[{"productoId": 1, "cantidad": 2}]'></textarea>
+            </div>
+            <button id="generateInvoiceBtn" class="btn">Generar Boleta</button>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Resultados de la API</h2>
+            <div id="resultArea" class="result-area">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        let jwtToken = localStorage.getItem('jwtToken') || '';
+
+        const resultArea = document.getElementById('resultArea');
+        const jwtTokenDisplay = document.getElementById('jwtTokenDisplay');
+
+        function updateTokenDisplay() {
+            jwtTokenDisplay.textContent = jwtToken ? jwtToken : 'No token';
+        }
+
+        updateTokenDisplay();
+
+        async function callApi(method, url, body = null, requiresAuth = true) {
+            resultArea.textContent = 'Cargando...';
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            if (requiresAuth && jwtToken) {
+                headers['Authorization'] = `Bearer ${jwtToken}`;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${url}`, {
+                    method: method,
+                    headers: headers,
+                    body: body ? JSON.stringify(body) : null,
+                });
+
+                let data;
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.message || data || 'Error en la solicitud');
+                }
+
+                resultArea.textContent = JSON.stringify(data, null, 2);
+                return data;
+            } catch (error) {
+                resultArea.textContent = `Error: ${error.message}`;
+                console.error('Error en la llamada a la API:', error);
+                throw error; // Re-lanza el error para que los manejadores de eventos puedan capturarlo
+            }
+        }
+
+        // --- Autenticación ---
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            await callApi('POST', '/registro', { username, password }, false);
+        });
+
+        document.getElementById('adminRegisterBtn').addEventListener('click', async () => {
+            const username = document.getElementById('adminRegUsername').value;
+            const password = document.getElementById('adminRegPassword').value;
+            const role = document.getElementById('adminRegRole').value;
+            await callApi('POST', '/admin/registro-usuario', { username, password, role }, true);
+        });
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const data = await callApi('POST', '/auth/login', { username, password }, false);
+                jwtToken = data.token;
+                localStorage.setItem('jwtToken', jwtToken);
+                updateTokenDisplay();
+                resultArea.textContent = 'Inicio de sesión exitoso. Token guardado.';
+            } catch (error) {
+                // El error ya se muestra en resultArea por callApi
+            }
+        });
+
+        // --- Gestión de Productos ---
+        document.getElementById('createProductBtn').addEventListener('click', async () => {
+            const nombre = document.getElementById('prodName').value;
+            const stock = parseInt(document.getElementById('prodStock').value);
+            const descripcion = document.getElementById('prodDesc').value;
+            const precio = parseFloat(document.getElementById('prodPrice').value);
+            await callApi('POST', '/productos', { nombre, stock, descripcion, precio });
+        });
+
+        document.getElementById('updateProductBtn').addEventListener('click', async () => {
+            const id = document.getElementById('updateProdId').value;
+            const nombre = document.getElementById('updateProdName').value;
+            const stock = parseInt(document.getElementById('updateProdStock').value);
+            const descripcion = document.getElementById('updateProdDesc').value;
+            const precio = parseFloat(document.getElementById('updateProdPrice').value);
+
+            const body = {};
+            if (nombre) body.nombre = nombre;
+            if (!isNaN(stock)) body.stock = stock;
+            if (descripcion) body.descripcion = descripcion;
+            if (!isNaN(precio)) body.precio = precio;
+
+            await callApi('PUT', `/productos/${id}`, body);
+        });
+
+        document.getElementById('updateStockBtn').addEventListener('click', async () => {
+            const id = document.getElementById('updateStockId').value;
+            const nuevoStock = document.getElementById('newStockValue').value;
+            await callApi('PUT', `/productos/${id}/stock?nuevoStock=${nuevoStock}`);
+        });
+
+        document.getElementById('updatePriceBtn').addEventListener('click', async () => {
+            const id = document.getElementById('updatePriceId').value;
+            const nuevoPrecio = document.getElementById('newPriceValue').value;
+            await callApi('PUT', `/productos/${id}/precio?nuevoPrecio=${nuevoPrecio}`);
+        });
+
+        document.getElementById('deleteProductBtn').addEventListener('click', async () => {
+            const id = document.getElementById('deleteProdId').value;
+            await callApi('DELETE', `/productos/${id}`);
+        });
+
+        document.getElementById('listProductsBtn').addEventListener('click', async () => {
+            await callApi('GET', '/productos');
+        });
+
+        document.getElementById('listLowStockProductsBtn').addEventListener('click', async () => {
+            await callApi('GET', '/productos/bajo-stock');
+        });
+
+        document.getElementById('getProductByIdBtn').addEventListener('click', async () => {
+            const id = document.getElementById('getProductById').value;
+            await callApi('GET', `/productos/${id}`);
+        });
+
+        // --- Generación de Boletas ---
+        document.getElementById('generateInvoiceBtn').addEventListener('click', async () => {
+            const productsJson = document.getElementById('invoiceProductsJson').value;
+            try {
+                const products = JSON.parse(productsJson);
+                await callApi('POST', '/boletas/generar', products);
+            } catch (e) {
+                resultArea.textContent = `Error al parsear JSON de productos: ${e.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

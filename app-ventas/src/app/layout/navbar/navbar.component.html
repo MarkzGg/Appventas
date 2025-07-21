@@ -3,8 +3,8 @@
     <a routerLink="/products">Productos</a>
   </div>
 
-  <div class="navbar-center">
-    <a routerLink="/carrito">Carrito</a>
+  <div class="navbar-center" *ngIf="!authService.isAdmin() && !authService.isUser()">
+    <!-- Carrito oculto para usuarios y admins -->
   </div>
 
   <div class="navbar-right">
@@ -15,17 +15,17 @@
 
     <ng-container *ngIf="authService.isAuthenticated()">
       <a routerLink="/perfil">Perfil</a>
-      <a routerLink="/pedidos">Pedidos</a>
+      <!-- Ocultar Pedidos para usuarios -->
+      <a routerLink="/pedidos" *ngIf="!authService.isAdmin() && !authService.isUser()">Pedidos</a>
 
-      <ng-container *ngIf="authService.isUser() || authService.isAdmin()">
+      <ng-container *ngIf="authService.isAdmin() || authService.isUser()">
         <a routerLink="/admin/productos">Gestión Productos</a>
         <a routerLink="/admin/pedidos">Gestión Pedidos</a>
         <a routerLink="/admin/categorias">Gestión Categorías</a>
         <a routerLink="/admin/marcas">Gestión Marcas</a>
-        <a routerLink="/admin/resenas">Moderación Reseñas</a>
         <a routerLink="/admin/usuarios">Gestión Usuarios</a>
       </ng-container>
-<!-- 
+<!--
       <ng-container *ngIf="authService.isAdmin()">
         <a routerLink="/admin">Panel Admin</a>
       </ng-container> -->

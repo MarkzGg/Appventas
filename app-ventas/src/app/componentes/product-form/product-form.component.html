@@ -1,44 +1,53 @@
-        <h2>{{ editando ? 'Editar' : 'Nuevo' }} Producto</h2>
+         <h2>{{ editando ? 'Editar' : 'Nuevo' }} Producto</h2>
 
         <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
-        <form (ngSubmit)="guardar()">
+        <form #form="ngForm" (ngSubmit)="guardar()">
+          <div *ngIf="form.invalid && form.touched" class="error-message general-error">
+            Todos los campos son obligatorios y deben ser completados correctamente.
+          </div>
           <div>
             <label for="nombre">Nombre:</label>
-            <input id="nombre" [(ngModel)]="producto.nombre" name="nombre" required />
+            <input id="nombre" [(ngModel)]="producto.nombre" name="nombre" required #nombre="ngModel" />
+            <div *ngIf="nombre.invalid && nombre.touched" class="error-message">El nombre es obligatorio.</div>
           </div>
 
           <div>
             <label for="descripcion">Descripción:</label>
-            <input id="descripcion" [(ngModel)]="producto.descripcion" name="descripcion" required />
+            <input id="descripcion" [(ngModel)]="producto.descripcion" name="descripcion" required #descripcion="ngModel" />
+            <div *ngIf="descripcion.invalid && descripcion.touched" class="error-message">La descripción es obligatoria.</div>
           </div>
 
           <div>
             <label for="precio">Precio:</label>
-            <input type="number" id="precio" [(ngModel)]="producto.precio" name="precio" required min="0" />
+            <input type="number" id="precio" [(ngModel)]="producto.precio" name="precio" required min="1" #precio="ngModel" />
+            <div *ngIf="precio.invalid && precio.touched" class="error-message">El precio es obligatorio y debe ser mayor que 0.</div>
           </div>
 
           <div>
             <label for="stock">Stock:</label>
-            <input type="number" id="stock" [(ngModel)]="producto.stock" name="stock" required min="0" />
+            <input type="number" id="stock" [(ngModel)]="producto.stock" name="stock" required min="1" #stock="ngModel" />
+            <div *ngIf="stock.invalid && stock.touched" class="error-message">El stock es obligatorio y debe ser mayor que 0.</div>
           </div>
 
           <div>
         <label for="marca">Marca:</label>
-        <select id="marca" [(ngModel)]="producto.marca!.id" name="marca">
-          <option [ngValue]="undefined">-- Seleccione una Marca --</option>
-          <option *ngFor="let marca of marcas" [ngValue]="marca.id">{{ marca.nombre }}</option>
+        <select id="marca" [(ngModel)]="producto.marca!.id" name="marca" required #marca="ngModel">
+          <option [ngValue]="undefined" disabled selected>-- Seleccione una Marca --</option>
+          <option *ngFor="let marcaItem of marcas" [ngValue]="marcaItem.id">{{ marcaItem.nombre }}</option>
         </select>
+        <div *ngIf="marca.invalid && marca.touched" class="error-message">La marca es obligatoria.</div>
       </div>
       <!-- Select para Categoría -->
       <div>
         <label for="categoria">Categoría:</label>
-        <select id="categoria" [(ngModel)]="producto.categoria!.id" name="categoria">
-          <option [ngValue]="undefined">-- Seleccione una Categoría --</option>
-          <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
+        <select id="categoria" [(ngModel)]="producto.categoria!.id" name="categoria" required #categoria="ngModel">
+          <option [ngValue]="undefined" disabled selected>-- Seleccione una Categoría --</option>
+          <option *ngFor="let categoriaItem of categorias" [ngValue]="categoriaItem.id">{{ categoriaItem.nombre }}</option>
         </select>
+        <div *ngIf="categoria.invalid && categoria.touched" class="error-message">La categoría es obligatoria.</div>
       </div>
 
-          <button type="submit">Guardar</button>
-          <button type="button" (click)="cancelar()" style="background-color: gray;">Cancelar</button>
+          <button type="submit" [disabled]="form.invalid">Guardar</button>
+          <button type="button" (click)="cancelar()" style="background-color: gray; margin-left: 10px;">Cancelar</button>
         </form>

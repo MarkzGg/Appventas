@@ -9,6 +9,8 @@ import com.example.VentasSql.Repository.BoletaRepository;
 import com.example.VentasSql.Repository.DetalleBoletaRepository;
 import com.example.VentasSql.Repository.ProductoRepository;
 import com.example.VentasSql.Repository.UserRepository;
+import com.example.VentasSql.Repository.PedidoRepository;
+import com.example.VentasSql.Entidad.Pedido; // Asegúrate de importar tu entidad Pedido
 import java.security.Principal;
 import com.example.VentasSql.Service.BoletaPdfService; // Importa tu nuevo servicio de PDF
 import jakarta.validation.Valid;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.CrossOrigin; // Importa CrossOrigin
+
 
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
@@ -50,6 +53,7 @@ public class BoletaController {
     private final DetalleBoletaRepository detalleBoletaRepository;
     private final UserRepository userRepository;
     private final BoletaPdfService boletaPdfService; // Inyecta el servicio de PDF
+    private final PedidoRepository pedidoRepository; // Inyectar PedidoRepository
 
     private static final BigDecimal IGV_RATE = new BigDecimal("0.18");
 
@@ -124,10 +128,10 @@ public class BoletaController {
             boleta.setDetalles(detallesBoleta);
 
             // >>> ASIGNAR EL USUARIO A LA BOLETA <<<
-            // Necesitas el usuario logueado para asignar la boleta al comprador
-            // Si el usuario siempre está autenticado al generar una boleta, puedes usar Principal.
-            // Si no, debes pasar el ID de usuario en el PedidoRequest o de alguna otra forma.
-            // Ejemplo usando Principal:
+// Necesitas el usuario logueado para asignar la boleta al comprador
+// Si el usuario siempre está autenticado al generar una boleta, puedes usar Principal.
+// Si no, debes pasar el ID de usuario en el PedidoRequest o de alguna otra forma.
+// Ejemplo usando Principal:
             if (principal != null) {
                 Uuser usuario = userRepository.findByUsername(principal.getName())
                                               .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado."));
@@ -137,7 +141,7 @@ public class BoletaController {
                 // Podrías asignar un usuario por defecto o requerir que el usuario esté logueado
                 System.err.println("Advertencia: Boleta generada sin usuario autenticado.");
             }
-            // <<< FIN ASIGNAR USUARIO >>>
+// <<< FIN ASIGNAR USUARIO >>>
 
             boletaRepository.save(boleta);
 
@@ -154,9 +158,9 @@ public class BoletaController {
             // Aquí se devuelve un mensaje de confirmación, no el PDF
             StringBuilder mensajeBoleta = new StringBuilder();
             mensajeBoleta.append("Boleta generada con éxito. Número de Boleta: ").append(boleta.getNumeroBoleta());
-            return ResponseEntity.ok(java.util.Map.of("message", mensajeBoleta.toString(), "boletaId", boleta.getId()));
+            return ResponseEntity.ok(Map.of("message", mensajeBoleta.toString(), "boletaId", boleta.getId()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of("error", "Error al generar la boleta: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error al generar la boleta: " + e.getMessage()));
         }
     }
 
@@ -178,15 +182,6 @@ public class BoletaController {
         return String.format("BOLETA-%05d", ultimoNumero + 1); // Formato de 5 dígitos
     }
 
-    @GetMapping("/historial")
-    @PreAuthorize("hasAnyRole('COMPRADOR', 'ADMIN','USER')")
-    @Transactional
-    public ResponseEntity<?> obtenerHistorialBoletas(Principal principal) {
-        Uuser usuario = userRepository.findByUsername(principal.getName()).orElseThrow();
-        List<Boleta> historial = boletaRepository.findByUsuario(usuario);
-        return ResponseEntity.ok(historial);
-    }
-
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
@@ -204,6 +199,31 @@ public class BoletaController {
             return ResponseEntity.ok("Boleta eliminada correctamente. El stock de los productos ha sido revertido.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar la boleta: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/eliminar-con-pedido/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public ResponseEntity<String> eliminarBoletaYPedido(@PathVariable Long id) {
+        try {
+            Boleta boleta = boletaRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Boleta con ID " + id + " no encontrada."));
+            // Buscar pedido asociado por id de boleta
+            Pedido pedido = pedidoRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Pedido asociado a la boleta con ID " + id + " no encontrado."));
+            // Revertir stock de productos de la boleta
+            for (DetalleBoleta detalle : boleta.getDetalles()) {
+                Producto producto = detalle.getProducto();
+                producto.setStock(producto.getStock() + detalle.getCantidad());
+                productoRepository.save(producto);
+            }
+            // Eliminar pedido y boleta
+            pedidoRepository.delete(pedido);
+            boletaRepository.delete(boleta);
+            return ResponseEntity.ok("Boleta y pedido eliminados correctamente. El stock de los productos ha sido revertido.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar boleta y pedido: " + e.getMessage());
         }
     }
 
@@ -239,4 +259,17 @@ public class BoletaController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null); // Devuelve 500
         }
     }
+    /**
+     * Nuevo endpoint para que los ADMIN obtengan todas las boletas.
+     * Incluye los detalles de los productos y la información del usuario.
+     */
+    @GetMapping("/admin/todas")
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    @Transactional // ¡IMPORTANTE! Esto asegura que las relaciones lazy se inicialicen
+    public ResponseEntity<List<Boleta>> getAllBoletasForAdmin() {
+        // Usamos el nuevo método del repositorio que carga las relaciones necesarias (usuario, detalles, producto)
+        List<Boleta> boletas = boletaRepository.findAllWithUserAndDetails();
+        return ResponseEntity.ok(boletas);
+    }
+
 }

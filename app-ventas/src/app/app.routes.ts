@@ -15,6 +15,8 @@ import { OrderManagementComponent } from './componentes/order-management/order-m
 import { CategoryManagementComponent } from './componentes/category-management/category-management.component';
 import { BrandManagementComponent } from './componentes/brand-management/brand-management.component';
 import { ReviewManagementComponent } from './componentes/review-management/review-management.component';
+import { AdminOrUserGuard } from './guards/admin-or-user-guard.guard';
+
 
 
 export const routes: Routes = [
@@ -60,10 +62,11 @@ export const routes: Routes = [
   { path: 'admin', component: AdminComponent, canActivate: [AdminGuard] }, // Solo ADMIN
   { path: 'admin/productos', component: AdminComponent, canActivate: [UserAdminGuard] }, // AdminComponent lista productos, USER y ADMIN pueden verla
   { path: 'admin/productos/create', component: ProductFormComponent, canActivate: [AdminGuard] }, // Solo ADMIN puede crear
-  { path: 'admin/productos/edit/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] }, // USER y ADMIN pueden editar (si el backend lo permite)
-  // Rutas exclusivas para ADMINISTRADORES (requieren AdminGuard)
+  { path: 'admin/productos/edit/:id', component: ProductFormComponent, canActivate: [UserAdminGuard] },
+   // Rutas exclusivas para ADMINISTRADORES (requieren AdminGuard)
   { path: 'admin/usuarios', component: UserManagementComponent, canActivate: [AdminGuard] },
-  { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] },
+  { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminOrUserGuard] },
+  // { path: 'admin/pedidos', component: OrderManagementComponent, canActivate: [AdminGuard] }, // <--- NUEVA RUTA PARA ADMINISTRADOR
   { path: 'admin/categorias', component: CategoryManagementComponent, canActivate: [AdminGuard] },
   { path: 'admin/marcas', component: BrandManagementComponent, canActivate: [AdminGuard] },
   { path: 'admin/resenas', component: ReviewManagementComponent, canActivate: [UserAdminGuard] },

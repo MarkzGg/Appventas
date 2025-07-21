@@ -1,0 +1,35 @@
+<div class="modal-overlay" *ngIf="pedido">
+  <div class="modal-content">
+    <h2>Detalle del Pedido - Boleta {{ pedido.numeroBoleta }}</h2>
+    <p>Fecha: {{ pedido.fechaEmision | date:'short' }}</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio Unitario</th>
+          <th>Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let detalle of pedido.detalles">
+          <td>{{ detalle.producto }}</td>
+          <td>{{ detalle.cantidad }}</td>
+          <td>S/ {{ detalle.precioUnitario | number:'1.2-2' }}</td>
+          <td>S/ {{ detalle.subtotalDetalle | number:'1.2-2' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <p>Subtotal: S/ {{ pedido.subtotal | number:'1.2-2' }}</p>
+      <p>IGV (18%): S/ {{ pedido.igv | number:'1.2-2' }}</p>
+      <h3>Total: S/ {{ pedido.total | number:'1.2-2' }}</h3>
+    </div>
+
+    <div class="modal-actions">
+      <button (click)="cerrarModal()">Cerrar</button>
+      </div>
+  </div>
+</div>

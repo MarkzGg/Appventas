@@ -1,3 +1,13 @@
+/* Estilos generales del contenedor de pedidos del administrador */
+.orders-container {
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 h2 {
   text-align: center;
   color: #333;
@@ -5,141 +15,179 @@ h2 {
   margin-bottom: 30px;
 }
 
-.mensaje {
+/* Estilos para mensajes de éxito y error */
+.mensaje-exito {
   padding: 10px;
   margin: 10px auto;
   width: 80%;
   text-align: center;
   border-radius: 5px;
   font-weight: bold;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
-.mensaje[style*="color: red;"] {
-  background-color: #ffe0e0;
-  border: 1px solid #ffcccc;
-  color: red;
-}
-
-.mensaje[style*="color: green;"] {
-  background-color: #e0ffe0;
-  border: 1px solid #ccffcc;
-  color: green;
-}
-
-/* Formulario de creación/edición */
-form, div.creation-form { /* Añadido div.creation-form para el formulario de creación de marca/categoría */
-  display: flex;
-  flex-direction: column;
-  max-width: 500px;
-  margin: 20px auto;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  gap: 15px;
-  background-color: #fff;
-}
-
-form div, div.creation-form div {
-  display: flex;
-  flex-direction: column;
-}
-
-form label, div.creation-form label {
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #333;
-}
-
-form input[type="text"],
-form input[type="password"],
-form input[type="number"],
-form select,
-div.creation-form input[type="text"] {
+.mensaje-error {
   padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  width: 100%;
-  box-sizing: border-box;
+  margin: 10px auto;
+  width: 80%;
+  text-align: center;
+  border-radius: 5px;
+  font-weight: bold;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
-button {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-  color: white;
-  background-color: #007bff; /* Color primario */
+/* Mensaje cuando no hay pedidos */
+.no-orders-message {
+  text-align: center;
+  padding: 40px;
+  color: #555;
+  font-size: 1.2rem;
 }
 
-button:hover {
-  background-color: #0056b3;
+/* Contenedor para tablas responsivas */
+.table-responsive {
+  overflow-x: auto;
 }
 
-button[style*="background-color: #dc3545;"] { /* Estilo para botones de eliminar */
-  background-color: #dc3545;
-}
-button[style*="background-color: #dc3545;"]:hover {
-  background-color: #c82333;
-}
-
-button[style*="background-color: #28a745;"] { /* Estilo para botones de éxito/aprobar */
-  background-color: #28a745;
-}
-button[style*="background-color: #28a745;"]:hover {
-  background-color: #218838;
-}
-
-button[style*="background-color: orange;"] { /* Estilo para botones de advertencia */
-  background-color: orange;
-}
-button[style*="background-color: orange;"]:hover {
-  background-color: darkorange;
-}
-
-button[style*="background-color: gray;"] { /* Estilo para botones de cancelar */
-  background-color: gray;
-}
-button[style*="background-color: gray;"]:hover {
-  background-color: darkgray;
-}
-
+/* Estilos de tabla */
 table {
-  width: 90%;
-  margin: 20px auto;
+  width: 100%;
   border-collapse: collapse;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
   background-color: #fff;
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 th, td {
-  padding: 12px 15px;
   border: 1px solid #ddd;
+  padding: 12px;
   text-align: left;
+  vertical-align: middle;
 }
 
 th {
-  background-color: #f2f2f2;
+  background-color: #e0e0e0;
   font-weight: bold;
-  color: #333;
+  color: #444;
 }
 
 tr:nth-child(even) {
-  background-color: #f9f9f9;
+  background-color: #f2f2f2;
 }
 
 tr:hover {
-  background-color: #f1f1f1;
+  background-color: #e9e9e9;
 }
 
-h3 {
-  text-align: center;
-  color: #333;
-  margin-top: 20px;
-  margin-bottom: 15px;
+/* Estilos de botones de acción */
+button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-right: 8px; /* Espacio entre botones */
+}
+
+.view-details-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.view-details-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.download-pdf-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.download-pdf-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+  transform: translateY(-1px);
+}
+
+/* Media queries para responsividad en dispositivos pequeños */
+@media (max-width: 768px) {
+  .orders-container {
+    margin: 15px;
+    padding: 15px;
+  }
+
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+
+  thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+
+  tr {
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  td {
+    border: none;
+    border-bottom: 1px solid #eee;
+    position: relative;
+    padding-left: 50%;
+    text-align: right;
+  }
+
+  td:last-child {
+    border-bottom: 0;
+  }
+
+  td:before {
+    content: attr(data-label);
+    position: absolute;
+    left: 6px;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: bold;
+    color: #555;
+  }
+
+  /* Etiquetas para celdas en vista móvil */
+  td:nth-of-type(1):before { content: "N° Boleta:"; }
+  td:nth-of-type(2):before { content: "Fecha:"; }
+  td:nth-of-type(3):before { content: "Cliente:"; }
+  td:nth-of-type(4):before { content: "Subtotal:"; }
+  td:nth-of-type(5):before { content: "IGV:"; }
+  td:nth-of-type(6):before { content: "Total:"; }
+  td:nth-of-type(7):before { content: "Acciones:"; }
+
+  td:nth-of-type(7) {
+    text-align: center;
+    padding-top: 15px;
+    padding-bottom: 15px;
+  }
+  td:nth-of-type(7) button {
+    display: block;
+    width: calc(100% - 16px);
+    margin: 8px auto;
+  }
 }

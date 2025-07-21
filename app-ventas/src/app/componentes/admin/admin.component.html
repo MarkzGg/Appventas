@@ -2,8 +2,8 @@
 
 <div *ngIf="mensaje" class="mensaje">{{ mensaje }}</div>
 
+<!-- Botón "Nuevo Producto" redundante eliminado -->
 <button *ngIf="authService.isAdmin()" (click)="editarProducto(0)">Nuevo Producto</button>
-<button (click)="editarProducto(0)">Nuevo Producto</button>
 
 <table *ngIf="productos.length > 0">
   <thead>
